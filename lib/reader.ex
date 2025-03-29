@@ -1,6 +1,8 @@
 defmodule Reader do
   import Bitwise, only: [&&&: 2, >>>: 2]
 
+  def skip_bytes(file, bytes), do: :file.position(file, {:cur, bytes})
+
   def get_table_directory(file_path \\ "data/test.ttf") do
     case File.open(file_path, [:read, :binary]) do
       {:ok, file} ->
@@ -21,7 +23,7 @@ defmodule Reader do
                 {:error, reason}
             end
 
-          :file.position(file, elem(:file.position(file, :cur), 1) + 6)
+          skip_bytes(file, 6)
 
           Enum.reduce(1..num_tables, %{}, fn _, acc ->
             {:ok, <<tag::binary>>} = :file.read(file, 4)
@@ -58,14 +60,12 @@ defmodule Reader do
     (flag >>> bit_index &&& 1) == 1
   end
 
-  def read_coordinates(file, all_flags, reading_x: true) do
-    offset_size_flag_bit = 1
-    offset_sign_or_skip_bit = 4
-    coordinates_length = length(all_flags)
+  def read_coordinates(file, all_flags, reading_x: reading_x) do
+    offset_size_flag_bit = if reading_x, do: 1, else: 2
+    offset_sign_or_skip_bit = if reading_x, do: 4, else: 5
 
-    Enum.reduce(0..(coordinates_length - 1), [], fn i, acc ->
-      base_offset = if i == 0, do: 0, else: Enum.at(acc, i - 1)
-      flag = Enum.at(all_flags, i)
+    {cooridantes, _} = Enum.reduce(all_flags, {[], 0}, fn flag, {acc, last} ->
+      base_offset = last
 
       _on_curve = flag_bit_is_set(flag, 0)
 
@@ -84,43 +84,21 @@ defmodule Reader do
             base_offset
         end
 
-      acc ++ [final_offset]
+      {[final_offset | acc], final_offset}
     end)
+
+    cooridantes |> Enum.reverse
   end
 
-  def read_coordinates(file, all_flags, reading_x: false) do
-    offset_size_flag_bit = 2
-    offset_sign_or_skip_bit = 5
-    coordinates_length = length(all_flags)
-
-    Enum.reduce(0..(coordinates_length - 1), [], fn i, acc ->
-      base_offset = if i == 0, do: 0, else: Enum.at(acc, i - 1)
-      flag = Enum.at(all_flags, i)
-
-      _on_curve = flag_bit_is_set(flag, 0)
-
-      final_offset =
-        cond do
-          flag_bit_is_set(flag, offset_size_flag_bit) ->
-            {:ok, <<offset::8>>} = :file.read(file, 1)
-            sign = if flag_bit_is_set(flag, offset_sign_or_skip_bit), do: 1, else: -1
-            base_offset + offset * sign
-
-          not flag_bit_is_set(flag, offset_sign_or_skip_bit) ->
-            {:ok, <<offset::8>>} = :file.read(file, 1)
-            base_offset + offset
-
-          true ->
-            base_offset
-        end
-
-      acc ++ [final_offset]
-    end)
+  def read_simple_glyph(file, offset) do
+    :file.position(file, offset)
+    read_simple_glyph(file)
   end
 
   def read_simple_glyph(file) do
+    # Read contour and indices
     {:ok, <<contour_end_indices_size::integer-16>>} = :file.read(file, 2)
-    :file.read(file, 8)
+    skip_bytes(file, 8) # Skip bounds size
 
     contour_end_indices =
       Enum.map(1..contour_end_indices_size, fn _ ->
@@ -131,7 +109,7 @@ defmodule Reader do
     num_points = List.last(contour_end_indices) + 1
 
     {:ok, <<instruction_bytes::integer-16>>} = :file.read(file, 2)
-    :file.read(file, instruction_bytes)
+    skip_bytes(file, instruction_bytes) # Skip instructions
 
     all_flags = collect_flags(file, num_points, 0) |> Enum.reverse()
 
@@ -145,9 +123,8 @@ defmodule Reader do
 
   def collect_flags(file, num_points, index) do
     {:ok, <<flag::8>>} = :file.read(file, 1)
-    fbis? = flag_bit_is_set(flag, 3)
 
-    if fbis? do
+    if flag_bit_is_set(flag, 3) do
       {:ok, <<number_of_copys::8>>} = :file.read(file, 1)
 
       List.duplicate(flag, number_of_copys) ++
@@ -155,5 +132,42 @@ defmodule Reader do
     else
       [flag | collect_flags(file, num_points, index + 1)]
     end
+  end
+
+  def get_all_glyph_locations(font_path \\ "data/test.ttf") do
+    table_directory = get_table_directory(font_path)
+
+    {:ok, file} = File.open(font_path, [:read, :binary])
+
+    maxp_offset = Keyword.get(table_directory["maxp"], :offset) + 4 # Skip unused: version
+
+    {:ok, <<num_glyphs::unsigned-integer-16>>} = :file.pread(file, maxp_offset, 2)
+
+    head_offset = Keyword.get(table_directory["head"], :offset)
+    :file.position(file, head_offset)
+
+    skip_bytes(file, 50)
+
+    {:ok, <<index_to_loc_format::integer-16>>} = :file.read(file, 2)
+    is_two_byte_entry = index_to_loc_format == 0
+
+    location_table_start = Keyword.get(table_directory["loca"], :offset)
+    glyph_table_start = Keyword.get(table_directory["glyf"], :offset)
+
+    all_glyph_locations = Enum.map(0..num_glyphs-1, fn glyph_index ->
+      :file.position(file, location_table_start + glyph_index * (if is_two_byte_entry, do: 2, else: 4))
+
+      glyph_data_offset = if is_two_byte_entry do
+        {:ok, <<gdo::unsigned-integer-16>>} = :file.read(file, 2)
+        gdo * 2
+      else
+        {:ok, <<gdo::unsigned-integer-32>>} = :file.read(file, 4)
+        gdo
+      end
+
+      glyph_table_start + glyph_data_offset
+    end)
+    File.close(file)
+    Enum.reverse(all_glyph_locations)
   end
 end
