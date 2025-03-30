@@ -1,173 +1,173 @@
 defmodule Reader do
-  import Bitwise, only: [&&&: 2, >>>: 2]
-
-  def skip_bytes(file, bytes), do: :file.position(file, {:cur, bytes})
-
-  def get_table_directory(file_path \\ "data/test.ttf") do
-    case File.open(file_path, [:read, :binary]) do
-      {:ok, file} ->
-        try do
-          # Skip the first 4 bytes
-          :file.position(file, 4)
-
-          # Read the next 2 bytes
-          {:ok, num_tables} =
-            case :file.read(file, 2) do
-              {:ok, <<value::big-size(16)>>} ->
-                {:ok, value}
-
-              {:ok, _} ->
-                {:error, :insufficient_data}
-
-              {:error, reason} ->
-                {:error, reason}
-            end
-
-          skip_bytes(file, 6)
-
-          Enum.reduce(1..num_tables, %{}, fn _, acc ->
-            {:ok, <<tag::binary>>} = :file.read(file, 4)
-            {:ok, <<checksum::unsigned-integer-32>>} = :file.read(file, 4)
-            {:ok, <<offset::unsigned-integer-32>>} = :file.read(file, 4)
-            {:ok, <<length::unsigned-integer-32>>} = :file.read(file, 4)
-
-            Map.put(acc, tag, checksum: checksum, offset: offset, length: length)
-          end)
-        after
-          File.close(file)
-        end
-
-      {:error, reason} ->
-        {:error, reason}
+  def skip_bytes(file, bytes) do
+    case :file.position(file, {:cur, bytes}) do
+      {:ok, new_position} -> {:ok, new_position}
+      {:error, reason} -> {:error, "Failed to skip #{bytes} bytes: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
     end
   end
 
-  def parse_font(font_path \\ "data/test.ttf") do
-    table_directory = get_table_directory(font_path)
-
-    {:ok, file} = File.open(font_path, [:read, :binary])
-
-    glyf_offset = Keyword.get(table_directory["glyf"], :offset)
-
-    :file.position(file, glyf_offset)
-    {glyf_xcoords, glyf_ycoords, contour_end_indices} = read_simple_glyph(file)
-    :file.close(file)
-    IO.inspect(Enum.with_index(contour_end_indices))
-    Enum.zip(glyf_xcoords, glyf_ycoords)
-  end
-
-  def flag_bit_is_set(flag, bit_index) do
-    (flag >>> bit_index &&& 1) == 1
-  end
-
-  def read_coordinates(file, all_flags, reading_x: reading_x) do
-    offset_size_flag_bit = if reading_x, do: 1, else: 2
-    offset_sign_or_skip_bit = if reading_x, do: 4, else: 5
-
-    {cooridantes, _} = Enum.reduce(all_flags, {[], 0}, fn flag, {acc, last} ->
-      base_offset = last
-
-      _on_curve = flag_bit_is_set(flag, 0)
-
-      final_offset =
-        cond do
-          flag_bit_is_set(flag, offset_size_flag_bit) ->
-            {:ok, <<offset::8>>} = :file.read(file, 1)
-            sign = if flag_bit_is_set(flag, offset_sign_or_skip_bit), do: 1, else: -1
-            base_offset + offset * sign
-
-          not flag_bit_is_set(flag, offset_sign_or_skip_bit) ->
-            {:ok, <<offset::8>>} = :file.read(file, 1)
-            base_offset + offset
-
-          true ->
-            base_offset
-        end
-
-      {[final_offset | acc], final_offset}
-    end)
-
-    cooridantes |> Enum.reverse
-  end
-
-  def read_simple_glyph(file, offset) do
-    :file.position(file, offset)
-    read_simple_glyph(file)
-  end
-
-  def read_simple_glyph(file) do
-    # Read contour and indices
-    {:ok, <<contour_end_indices_size::integer-16>>} = :file.read(file, 2)
-    skip_bytes(file, 8) # Skip bounds size
-
-    contour_end_indices =
-      Enum.map(1..contour_end_indices_size, fn _ ->
-        {:ok, <<val::unsigned-integer-16>>} = :file.read(file, 2)
-        val
-      end)
-
-    num_points = List.last(contour_end_indices) + 1
-
-    {:ok, <<instruction_bytes::integer-16>>} = :file.read(file, 2)
-    skip_bytes(file, instruction_bytes) # Skip instructions
-
-    all_flags = collect_flags(file, num_points, 0) |> Enum.reverse()
-
-    coords_x = read_coordinates(file, all_flags, reading_x: true)
-    coords_y = read_coordinates(file, all_flags, reading_x: false)
-
-    {coords_x, coords_y, contour_end_indices}
-  end
-
-  def collect_flags(_, num_points, num_points), do: []
-
-  def collect_flags(file, num_points, index) do
-    {:ok, <<flag::8>>} = :file.read(file, 1)
-
-    if flag_bit_is_set(flag, 3) do
-      {:ok, <<number_of_copys::8>>} = :file.read(file, 1)
-
-      List.duplicate(flag, number_of_copys) ++
-        collect_flags(file, num_points, index + number_of_copys)
-    else
-      [flag | collect_flags(file, num_points, index + 1)]
+  def read_fixed(file) do
+    case :file.read(file, 4) do
+      {:ok, <<fixed_value::signed-integer-32>>} -> {:ok, fixed_value / 65536.0}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading Fixed value"}
+      {:error, reason} -> {:error, "Failed to read Fixed value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
     end
   end
 
-  def get_all_glyph_locations(font_path \\ "data/test.ttf") do
-    table_directory = get_table_directory(font_path)
-
-    {:ok, file} = File.open(font_path, [:read, :binary])
-
-    maxp_offset = Keyword.get(table_directory["maxp"], :offset) + 4 # Skip unused: version
-
-    {:ok, <<num_glyphs::unsigned-integer-16>>} = :file.pread(file, maxp_offset, 2)
-
-    head_offset = Keyword.get(table_directory["head"], :offset)
-    :file.position(file, head_offset)
-
-    skip_bytes(file, 50)
-
-    {:ok, <<index_to_loc_format::integer-16>>} = :file.read(file, 2)
-    is_two_byte_entry = index_to_loc_format == 0
-
-    location_table_start = Keyword.get(table_directory["loca"], :offset)
-    glyph_table_start = Keyword.get(table_directory["glyf"], :offset)
-
-    all_glyph_locations = Enum.map(0..num_glyphs-1, fn glyph_index ->
-      :file.position(file, location_table_start + glyph_index * (if is_two_byte_entry, do: 2, else: 4))
-
-      glyph_data_offset = if is_two_byte_entry do
-        {:ok, <<gdo::unsigned-integer-16>>} = :file.read(file, 2)
-        gdo * 2
-      else
-        {:ok, <<gdo::unsigned-integer-32>>} = :file.read(file, 4)
-        gdo
-      end
-
-      glyph_table_start + glyph_data_offset
-    end)
-    File.close(file)
-    Enum.reverse(all_glyph_locations)
+  def read_fword(file) do
+    case :file.read(file, 2) do
+      {:ok, <<fword::signed-integer-16>>} -> {:ok, fword}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading FWord value"}
+      {:error, reason} -> {:error, "Failed to read FWord value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
   end
+
+  def read_uword(file) do
+    case :file.read(file, 2) do
+      {:ok, <<uword::unsigned-integer-16>>} -> {:ok, uword}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading UWord value"}
+      {:error, reason} -> {:error, "Failed to read UWord value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_long_date_time(file) do
+    case :file.read(file, 8) do
+      {:ok, <<long_date_time::signed-integer-64>>} -> {:ok, long_date_time}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading LongDateTime value"}
+      {:error, reason} -> {:error, "Failed to read LongDateTime value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_int8(file) do
+    case :file.read(file, 1) do
+      {:ok, <<int8::signed-integer-8>>} -> {:ok, int8}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading Int8 value"}
+      {:error, reason} -> {:error, "Failed to read Int8 value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_int16(file) do
+    case :file.read(file, 2) do
+      {:ok, <<int16::signed-integer-16>>} -> {:ok, int16}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading Int16 value"}
+      {:error, reason} -> {:error, "Failed to read Int16 value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_int32(file) do
+    case :file.read(file, 4) do
+      {:ok, <<int32::signed-integer-32>>} -> {:ok, int32}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading Int32 value"}
+      {:error, reason} -> {:error, "Failed to read Int32 value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_int64(file) do
+    case :file.read(file, 8) do
+      {:ok, <<int64::signed-integer-64>>} -> {:ok, int64}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading Int64 value"}
+      {:error, reason} -> {:error, "Failed to read Int64 value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_uint8(file) do
+    case :file.read(file, 1) do
+      {:ok, <<uint8::unsigned-integer-8>>} -> {:ok, uint8}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading UInt8 value"}
+      {:error, reason} -> {:error, "Failed to read UInt8 value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_uint16(file) do
+    case :file.read(file, 2) do
+      {:ok, <<uint16::unsigned-integer-16>>} -> {:ok, uint16}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading UInt16 value"}
+      {:error, reason} -> {:error, "Failed to read UInt16 value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_uint32(file) do
+    case :file.read(file, 4) do
+      {:ok, <<uint32::unsigned-integer-32>>} -> {:ok, uint32}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading UInt32 value"}
+      {:error, reason} -> {:error, "Failed to read UInt32 value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_uint64(file) do
+    case :file.read(file, 8) do
+      {:ok, <<uint64::unsigned-integer-64>>} -> {:ok, uint64}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading UInt64 value"}
+      {:error, reason} -> {:error, "Failed to read UInt64 value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_short_frac(file) do
+    case :file.read(file, 2) do
+      {:ok, <<short_frac::signed-integer-16>>} -> {:ok, short_frac / 16384.0}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading ShortFrac value"}
+      {:error, reason} -> {:error, "Failed to read ShortFrac value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_f2dot14(file) do
+    case :file.read(file, 2) do
+      {:ok, <<f2dot14::signed-integer-16>>} -> {:ok, f2dot14 / 16384.0}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading F2Dot14 value"}
+      {:error, reason} -> {:error, "Failed to read F2Dot14 value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_tag(file) do
+    case :file.read(file, 4) do
+      {:ok, <<tag::binary-size(4)>>} -> {:ok, tag}
+      {:ok, _incomplete_data} -> {:error, "Incomplete data when reading Tag value"}
+      {:error, reason} -> {:error, "Failed to read Tag value: #{format_error(reason)}"}
+      :eof -> {:error, "Reach EOF"}
+    end
+  end
+
+  def read_pascal_string(file) do
+    case read_uint8(file) do
+      {:ok, length} ->
+        case :file.read(file, length) do
+          {:ok, <<string_data::binary-size(length)>>} -> {:ok, string_data}
+          {:ok, _incomplete_data} -> {:error, "Incomplete data when reading Pascal string of length #{length}"}
+          {:error, reason} -> {:error, "Failed to read Pascal string data: #{format_error(reason)}"}
+          :eof -> {:error, "Reach EOF"}
+        end
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  def read_at_offset(file, offset, read_fn) do
+    case :file.position(file, {:bof, offset}) do
+      {:ok, _new_position} ->
+        result = read_fn.(file)
+        # Restore original position (optional)
+        # :file.position(file, original_position)
+        result
+      {:error, reason} -> 
+        {:error, "Failed to seek to offset #{offset}: #{format_error(reason)}"}
+    end
+  end
+
+  defp format_error(reason) when is_binary(reason), do: reason
+  defp format_error(reason) when is_atom(reason), do: "#{reason}"
+  defp format_error(_reason), do: "unknown error"
 end
