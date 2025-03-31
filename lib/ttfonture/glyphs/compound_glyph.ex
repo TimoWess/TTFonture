@@ -1,5 +1,5 @@
 defmodule TTFonture.Glyphs.CompoundGlyph do
-  import TTFonture, only: [flag_bit_is_set: 2]
+  import TTFonture.Utility, only: [flag_bit_is_set: 2]
   alias TTFonture.BinaryReader
 
   defstruct x_min: 0,

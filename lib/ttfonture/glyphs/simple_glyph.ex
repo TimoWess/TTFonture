@@ -1,5 +1,5 @@
 defmodule TTFonture.Glyphs.SimpleGlyph do
-  import TTFonture, only: [flag_bit_is_set: 2]
+  import TTFonture.Utility, only: [flag_bit_is_set: 2]
   alias TTFonture.BinaryReader
 
   @type flag() :: non_neg_integer()

@@ -1,5 +1,4 @@
 defmodule TTFonture do
-  import Bitwise, only: [&&&: 2, >>>: 2]
   alias TTFonture.Glyphs.CompoundGlyph
   alias TTFonture.Glyphs.SimpleGlyph
   alias TTFonture.BinaryReader
@@ -41,11 +40,6 @@ defmodule TTFonture do
         {:error, reason} -> {:error, reason}
       end
     end)
-  end
-
-  @spec flag_bit_is_set(flag :: integer(), bit_index :: non_neg_integer()) :: boolean()
-  def flag_bit_is_set(flag, bit_index) do
-    (flag >>> bit_index &&& 1) == 1
   end
 
   @spec read_glyph(file :: pid(), offset :: non_neg_integer()) :: SimpleGlyph.t() | %CompoundGlyph{}
