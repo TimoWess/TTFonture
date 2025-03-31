@@ -1,4 +1,9 @@
 defmodule TTFonture.BinaryReader do
+  @type binary_term() :: integer() | float() | binary()
+  @type result() :: {:ok, binary_term()} | {:error, String.t()}
+  @type file_interaction() :: (file :: pid() -> result :: result())
+
+  @spec skip_bytes(file :: pid(), bytes :: non_neg_integer()) ::result()
   def skip_bytes(file, bytes) do
     case :file.position(file, {:cur, bytes}) do
       {:ok, new_position} -> {:ok, new_position}
@@ -7,6 +12,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_fixed(file :: pid()) :: result()
   def read_fixed(file) do
     case :file.read(file, 4) do
       {:ok, <<fixed_value::signed-integer-32>>} -> {:ok, fixed_value / 65536.0}
@@ -16,6 +22,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_fword(file :: pid()) :: result()
   def read_fword(file) do
     case :file.read(file, 2) do
       {:ok, <<fword::signed-integer-16>>} -> {:ok, fword}
@@ -25,6 +32,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_uword(file :: pid()) :: result()
   def read_uword(file) do
     case :file.read(file, 2) do
       {:ok, <<uword::unsigned-integer-16>>} -> {:ok, uword}
@@ -34,6 +42,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_long_date_time(file :: pid()) :: result()
   def read_long_date_time(file) do
     case :file.read(file, 8) do
       {:ok, <<long_date_time::signed-integer-64>>} -> {:ok, long_date_time}
@@ -43,6 +52,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_int8(file :: pid()) :: result()
   def read_int8(file) do
     case :file.read(file, 1) do
       {:ok, <<int8::signed-integer-8>>} -> {:ok, int8}
@@ -52,6 +62,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_int16(file :: pid()) :: result()
   def read_int16(file) do
     case :file.read(file, 2) do
       {:ok, <<int16::signed-integer-16>>} -> {:ok, int16}
@@ -61,6 +72,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_int32(file :: pid()) :: result()
   def read_int32(file) do
     case :file.read(file, 4) do
       {:ok, <<int32::signed-integer-32>>} -> {:ok, int32}
@@ -70,6 +82,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_int64(file :: pid()) :: result()
   def read_int64(file) do
     case :file.read(file, 8) do
       {:ok, <<int64::signed-integer-64>>} -> {:ok, int64}
@@ -79,6 +92,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_uint8(file :: pid()) :: result()
   def read_uint8(file) do
     case :file.read(file, 1) do
       {:ok, <<uint8::unsigned-integer-8>>} -> {:ok, uint8}
@@ -88,6 +102,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_uint16(file :: pid()) :: result()
   def read_uint16(file) do
     case :file.read(file, 2) do
       {:ok, <<uint16::unsigned-integer-16>>} -> {:ok, uint16}
@@ -97,6 +112,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_uint32(file :: pid()) :: result()
   def read_uint32(file) do
     case :file.read(file, 4) do
       {:ok, <<uint32::unsigned-integer-32>>} -> {:ok, uint32}
@@ -106,6 +122,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_uint64(file :: pid()) :: result()
   def read_uint64(file) do
     case :file.read(file, 8) do
       {:ok, <<uint64::unsigned-integer-64>>} -> {:ok, uint64}
@@ -115,6 +132,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_short_frac(file :: pid()) :: result()
   def read_short_frac(file) do
     case :file.read(file, 2) do
       {:ok, <<short_frac::signed-integer-16>>} -> {:ok, short_frac / 16384.0}
@@ -124,6 +142,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_f2dot14(file :: pid()) :: result()
   def read_f2dot14(file) do
     case :file.read(file, 2) do
       {:ok, <<f2dot14::signed-integer-16>>} -> {:ok, f2dot14 / 16384.0}
@@ -133,6 +152,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_tag(file :: pid()) :: result()
   def read_tag(file) do
     case :file.read(file, 4) do
       {:ok, <<tag::binary-size(4)>>} -> {:ok, tag}
@@ -142,6 +162,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_pascal_string(file :: pid()) :: result()
   def read_pascal_string(file) do
     case read_uint8(file) do
       {:ok, length} ->
@@ -155,6 +176,7 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
+  @spec read_at_offset(file :: pid(), offset :: non_neg_integer(), read_fn :: file_interaction()) :: result()
   def read_at_offset(file, offset, read_fn) do
     case :file.position(file, {:bof, offset}) do
       {:ok, _new_position} ->

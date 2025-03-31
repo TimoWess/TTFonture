@@ -2,6 +2,21 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
   import TTFonture, only: [flag_bit_is_set: 2]
   alias TTFonture.BinaryReader
 
+  @type flag() :: non_neg_integer()
+  @type t() :: %__MODULE__{
+          number_of_contours: non_neg_integer(),
+          x_min: integer(),
+          y_min: integer(),
+          x_max: integer(),
+          y_max: integer(),
+          contour_end_points: [non_neg_integer()],
+          instruction_length: non_neg_integer(),
+          instructions: [non_neg_integer()],
+          flags: [flag()],
+          coords_x: [integer()],
+          coords_y: [integer()]
+        }
+
   defstruct number_of_contours: 0,
             x_min: 0,
             y_min: 0,
@@ -15,6 +30,15 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
             coords_y: []
 
   defmodule Flag do
+    @type t() :: %__MODULE__{
+            on_curve: boolean(),
+            x_short_vector: boolean(),
+            y_short_vector: boolean(),
+            repeat: boolean(),
+            offset_sign_or_skip_x: boolean(),
+            offset_sign_or_skip_y: boolean()
+          }
+
     defstruct on_curve: false,
               x_short_vector: false,
               y_short_vector: false,
@@ -23,6 +47,9 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
               offset_sign_or_skip_y: false
   end
 
+  @spec read_coordinates(file :: pid(), all_flags :: [flag()], reading_x: boolean()) :: [
+          integer()
+        ]
   def read_coordinates(file, all_flags, reading_x: reading_x) do
     offset_size_flag_bit = if reading_x, do: 1, else: 2
     offset_sign_or_skip_bit = if reading_x, do: 4, else: 5
@@ -54,6 +81,7 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
     coordinates |> Enum.reverse()
   end
 
+  @spec parse_flag(flag :: flag()) :: __MODULE__.Flag.t()
   def parse_flag(flag) do
     on_curve = flag_bit_is_set(flag, 0)
     x_short_vector = flag_bit_is_set(flag, 1)
@@ -72,6 +100,8 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
     }
   end
 
+  @spec collect_flags(file :: pid(), num_points :: non_neg_integer(), index :: non_neg_integer()) ::
+          [flag()]
   def collect_flags(_, num_points, index) when index >= num_points, do: []
 
   def collect_flags(file, num_points, index) do
@@ -87,11 +117,13 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
     end
   end
 
+  @spec read(file :: pid(), offset :: non_neg_integer()) :: __MODULE__.t()
   def read(file, offset) do
     :file.position(file, offset)
     read(file)
   end
 
+  @spec read(file :: pid()) :: __MODULE__.t()
   def read(file) do
     {:ok, number_of_contours} = BinaryReader.read_int16(file)
 

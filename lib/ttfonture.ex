@@ -4,6 +4,8 @@ defmodule TTFonture do
   alias TTFonture.Glyphs.SimpleGlyph
   alias TTFonture.BinaryReader
 
+  @spec get_table_directory(binary()) :: map()
+  @spec get_table_directory(pid()) :: map()
   def get_table_directory(file_path \\ "data/test.ttf")
 
   def get_table_directory(file_path) when is_binary(file_path) do
@@ -41,12 +43,15 @@ defmodule TTFonture do
     end)
   end
 
+  @spec flag_bit_is_set(flag :: integer(), bit_index :: non_neg_integer()) :: boolean()
   def flag_bit_is_set(flag, bit_index) do
     (flag >>> bit_index &&& 1) == 1
   end
 
+  @spec read_glyph(file :: pid(), offset :: non_neg_integer()) :: SimpleGlyph.t() | %CompoundGlyph{}
   def read_glyph(file, offset) do
-    {:ok, number_of_contours} = BinaryReader.read_at_offset(file, offset, &BinaryReader.read_int16/1)
+    {:ok, number_of_contours} =
+      BinaryReader.read_at_offset(file, offset, &BinaryReader.read_int16/1)
 
     if number_of_contours >= 0,
       do: SimpleGlyph.read(file, offset),
@@ -75,7 +80,8 @@ defmodule TTFonture do
     # Skip unused: version
     maxp_offset = Keyword.get(table_directory["maxp"], :offset) + 4
 
-    {:ok, num_glyphs} = BinaryReader.read_at_offset(file, maxp_offset, &BinaryReader.read_uint16/1)
+    {:ok, num_glyphs} =
+      BinaryReader.read_at_offset(file, maxp_offset, &BinaryReader.read_uint16/1)
 
     head_offset = Keyword.get(table_directory["head"], :offset)
     :file.position(file, head_offset)
