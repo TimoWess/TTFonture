@@ -1,4 +1,4 @@
-defmodule Reader do
+defmodule TTFonture.BinaryReader do
   def skip_bytes(file, bytes) do
     case :file.position(file, {:cur, bytes}) do
       {:ok, new_position} -> {:ok, new_position}

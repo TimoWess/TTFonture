@@ -1,5 +1,6 @@
-defmodule CompoundGlyph do
-  import TtfData, only: [flag_bit_is_set: 2]
+defmodule TTFonture.Glyphs.CompoundGlyph do
+  import TTFonture, only: [flag_bit_is_set: 2]
+  alias TTFonture.BinaryReader
 
   defstruct x_min: 0,
             y_min: 0,
@@ -11,21 +12,21 @@ defmodule CompoundGlyph do
     cond do
       # WE_HAVE_A_SCALE
       flag_bit_is_set(flag, 3) ->
-        {:ok, scale} = Reader.read_f2dot14(file)
+        {:ok, scale} = BinaryReader.read_f2dot14(file)
         %{type: :uniform_scale, scale: scale}
 
       # WE_HAVE_AN_X_AND_Y_SCALE
       flag_bit_is_set(flag, 6) ->
-        {:ok, x_scale} = Reader.read_f2dot14(file)
-        {:ok, y_scale} = Reader.read_f2dot14(file)
+        {:ok, x_scale} = BinaryReader.read_f2dot14(file)
+        {:ok, y_scale} = BinaryReader.read_f2dot14(file)
         %{type: :xy_scale, x_scale: x_scale, y_scale: y_scale}
 
       # WE_HAVE_A_TWO_BY_TWO
       flag_bit_is_set(flag, 7) ->
-        {:ok, x_scale} = Reader.read_f2dot14(file)
-        {:ok, scale01} = Reader.read_f2dot14(file)
-        {:ok, scale10} = Reader.read_f2dot14(file)
-        {:ok, y_scale} = Reader.read_f2dot14(file)
+        {:ok, x_scale} = BinaryReader.read_f2dot14(file)
+        {:ok, scale01} = BinaryReader.read_f2dot14(file)
+        {:ok, scale10} = BinaryReader.read_f2dot14(file)
+        {:ok, y_scale} = BinaryReader.read_f2dot14(file)
         %{type: :matrix, x_scale: x_scale, scale01: scale01, scale10: scale10, y_scale: y_scale}
 
       # No transformation data
@@ -35,8 +36,8 @@ defmodule CompoundGlyph do
   end
 
   def read_components(file) do
-    {:ok, flag} = Reader.read_uint16(file)
-    {:ok, glyph_index} = Reader.read_uint16(file)
+    {:ok, flag} = BinaryReader.read_uint16(file)
+    {:ok, glyph_index} = BinaryReader.read_uint16(file)
 
     arg_1_and_2_are_words = flag_bit_is_set(flag, 0)
     _args_are_xy_values = flag_bit_is_set(flag, 1)
@@ -44,7 +45,7 @@ defmodule CompoundGlyph do
     more_components = flag_bit_is_set(flag, 5)
 
     argument_reader_function =
-      if arg_1_and_2_are_words, do: &Reader.read_int16/1, else: &Reader.read_int8/1
+      if arg_1_and_2_are_words, do: &BinaryReader.read_int16/1, else: &BinaryReader.read_int8/1
 
     {:ok, argument_1} = argument_reader_function.(file)
     {:ok, argument_2} = argument_reader_function.(file)
@@ -63,12 +64,12 @@ defmodule CompoundGlyph do
 
   def read(file) do
     # Skip numberOfContours
-    Reader.skip_bytes(file, 2)
+    BinaryReader.skip_bytes(file, 2)
 
-    {:ok, x_min} = Reader.read_fword(file)
-    {:ok, y_min} = Reader.read_fword(file)
-    {:ok, x_max} = Reader.read_fword(file)
-    {:ok, y_max} = Reader.read_fword(file)
+    {:ok, x_min} = BinaryReader.read_fword(file)
+    {:ok, y_min} = BinaryReader.read_fword(file)
+    {:ok, x_max} = BinaryReader.read_fword(file)
+    {:ok, y_max} = BinaryReader.read_fword(file)
 
     components = read_components(file)
 
