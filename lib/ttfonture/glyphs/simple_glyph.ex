@@ -54,7 +54,7 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
           offset_size_flag_bit :: non_neg_integer(),
           offset_sign_or_skip_bit :: non_neg_integer()
         ) :: non_neg_integer()
-  def calculate_final_offset(
+  defp calculate_final_offset(
         file,
         base_offset,
         flag,
@@ -79,7 +79,7 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
   @spec read_coordinates(file :: pid(), all_flags :: [flag()], reading_x: boolean()) :: [
           integer()
         ]
-  def read_coordinates(file, all_flags, reading_x: reading_x) do
+  defp read_coordinates(file, all_flags, reading_x: reading_x) do
     offset_size_flag_bit = if reading_x, do: 1, else: 2
     offset_sign_or_skip_bit = if reading_x, do: 4, else: 5
 
@@ -129,9 +129,9 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
           index :: non_neg_integer()
         ) ::
           [flag()]
-  def collect_flags(_, number_of_points, index) when index >= number_of_points, do: []
+  defp collect_flags(_, number_of_points, index) when index >= number_of_points, do: []
 
-  def collect_flags(file, number_of_points, index) do
+  defp collect_flags(file, number_of_points, index) do
     {:ok, flag} = BinaryReader.read_uint8(file)
 
     if flag_bit_is_set(flag, 3) do

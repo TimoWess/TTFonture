@@ -12,23 +12,6 @@ defmodule TTFonture do
           ]
         }
 
-  def get_table_directory(file_path \\ "data/test.ttf")
-
-  @spec get_table_directory(binary()) :: table_directory() | {:error, binary()}
-  def get_table_directory(file_path) when is_binary(file_path) do
-    case File.open(file_path, [:read, :binary]) do
-      {:ok, file} ->
-        try do
-          get_table_directory(file)
-        after
-          File.close(file)
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
   @spec get_table_directory(pid()) :: table_directory() | {:error, binary()}
   def get_table_directory(file) when is_pid(file) do
     # Skip scaler type

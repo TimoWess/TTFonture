@@ -5,6 +5,15 @@ defmodule TTFonture.FileRegister do
   """
   use Agent
 
+  @type table_directory() :: %{
+          binary() => [
+            checksum: non_neg_integer(),
+            offset: non_neg_integer(),
+            length: non_neg_integer()
+          ]
+        }
+  @type file_info() :: %{pid: pid(), table_directory: table_directory()}
+
   @doc """
   Starts the FileRegister agent.
   """
@@ -18,27 +27,27 @@ defmodule TTFonture.FileRegister do
   Returns {file_pid, table_directory}.
   """
   def register(path) do
-    file_info = 
-      Agent.get(__MODULE__, fn state -> 
+    file_info =
+      Agent.get(__MODULE__, fn state ->
         Map.get(state.files, path)
       end)
-      
+
     if is_nil(file_info) || !Process.alive?(file_info.pid) do
       {:ok, file} = File.open(path, [:binary, :read])
       table_directory = TTFonture.get_table_directory(file)
-      
+
       file_info = %{pid: file, table_directory: table_directory}
-      
-      Agent.update(__MODULE__, fn state -> 
+
+      Agent.update(__MODULE__, fn state ->
         %{state | current: file_info, files: Map.put(state.files, path, file_info)}
       end)
-      
+
       file_info
     else
-      Agent.update(__MODULE__, fn state -> 
+      Agent.update(__MODULE__, fn state ->
         %{state | current: file_info}
       end)
-      
+
       file_info
     end
   end
@@ -48,11 +57,11 @@ defmodule TTFonture.FileRegister do
   or raises if no file is registered.
   """
   def current do
-    Agent.get(__MODULE__, fn state -> 
+    Agent.get(__MODULE__, fn state ->
       if is_nil(state.current) do
         raise "No file currently registered. Call register/1 first."
       end
-      
+
       state.current
     end)
   end
@@ -76,10 +85,10 @@ defmodule TTFonture.FileRegister do
   """
   def close_all do
     Agent.get_and_update(__MODULE__, fn state ->
-      Enum.each(state.files, fn {_path, file_info} -> 
+      Enum.each(state.files, fn {_path, file_info} ->
         File.close(file_info.pid)
       end)
-      
+
       {state, %{current: nil, files: %{}}}
     end)
   end
@@ -94,9 +103,9 @@ defmodule TTFonture.FileRegister do
           File.close(file_info.pid)
           files = Map.delete(state.files, path)
           current = if state.current == file_info, do: nil, else: state.current
-          
+
           {file_info, %{state | current: current, files: files}}
-          
+
         :error ->
           {nil, state}
       end
