@@ -32,7 +32,7 @@ defmodule TTFonture do
   @spec get_table_directory(pid()) :: table_directory() | {:error, binary()}
   def get_table_directory(file) when is_pid(file) do
     # Skip scaler type
-    BinaryReader.skip_bytes(file, 4)
+    :file.position(file, {:bof, 4})
 
     {:ok, num_tables} = BinaryReader.read_uint16(file)
 
@@ -49,90 +49,5 @@ defmodule TTFonture do
         {:error, reason} -> {:error, reason}
       end
     end)
-  end
-
-  @spec read_glyph(file :: pid(), offset :: non_neg_integer()) :: glyph()
-  def read_glyph(file, offset) do
-    {:ok, number_of_contours} =
-      BinaryReader.read_at_offset(file, offset, &BinaryReader.read_int16/1)
-
-    if number_of_contours >= 0,
-      do: SimpleGlyph.read(file, offset),
-      else: CompoundGlyph.read(file, offset)
-  end
-
-  def get_all_glyph_locations(font_path \\ "data/test.ttf")
-
-  @spec get_all_glyph_locations(font_path :: binary()) :: [non_neg_integer()] | {:error, binary()}
-  def get_all_glyph_locations(font_path) when is_binary(font_path) do
-    case File.open(font_path, [:read, :binary]) do
-      {:ok, file} ->
-        try do
-          get_all_glyph_locations(file)
-        after
-          File.close(file)
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  @spec get_all_glyph_locations(file :: pid()) :: [non_neg_integer()]
-  def get_all_glyph_locations(file) when is_pid(file) do
-    table_directory = get_table_directory(file)
-
-    # Skip unused: version
-    maxp_offset = Keyword.get(table_directory["maxp"], :offset) + 4
-
-    {:ok, num_glyphs} =
-      BinaryReader.read_at_offset(file, maxp_offset, &BinaryReader.read_uint16/1)
-
-    head_offset = Keyword.get(table_directory["head"], :offset)
-    :file.position(file, head_offset)
-
-    # Skip unused: version, fontRevision, checkSumAdjustment, magicNumber?, flags, unitsPerEm, created, modified, xMin, yMin, xMax, yMax, macStyle, lowestRecPPEM, fontDirectionHint
-    BinaryReader.skip_bytes(file, 50)
-
-    {:ok, index_to_loc_format} = BinaryReader.read_int16(file)
-    is_two_byte_entry = index_to_loc_format == 0
-    offset_length = if is_two_byte_entry, do: 2, else: 4
-
-    location_table_start = Keyword.get(table_directory["loca"], :offset)
-    glyph_table_start = Keyword.get(table_directory["glyf"], :offset)
-
-    all_glyph_locations =
-      Enum.map(0..(num_glyphs - 1), fn glyph_index ->
-        :file.position(file, location_table_start + glyph_index * offset_length)
-
-        glyph_data_offset =
-          if is_two_byte_entry do
-            {:ok, gdo} = BinaryReader.read_uint16(file)
-            gdo * 2
-          else
-            {:ok, gdo} = BinaryReader.read_uint32(file)
-            gdo
-          end
-
-        glyph_table_start + glyph_data_offset
-      end)
-
-    all_glyph_locations
-  end
-
-  @spec read_all_glyphs(font_path :: binary()) :: [glyph()] | {:error, binary()}
-  def read_all_glyphs(font_path \\ "data/test.ttf") do
-    case File.open(font_path, [:read, :binary]) do
-      {:ok, file} ->
-        try do
-          all_glyph_locations = get_all_glyph_locations(file)
-          Enum.map(all_glyph_locations, fn offset -> read_glyph(file, offset) end)
-        after
-          File.close(file)
-        end
-
-      {:error, reason} ->
-        {:error, reason}
-    end
   end
 end
