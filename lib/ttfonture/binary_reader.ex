@@ -3,7 +3,7 @@ defmodule TTFonture.BinaryReader do
   @type result() :: {:ok, binary_term()} | {:error, String.t()}
   @type file_interaction() :: (file :: pid() -> result :: result())
 
-  @spec skip_bytes(file :: pid(), bytes :: non_neg_integer()) ::result()
+  @spec skip_bytes(file :: pid(), bytes :: non_neg_integer()) :: result()
   def skip_bytes(file, bytes) do
     case :file.position(file, {:cur, bytes}) do
       {:ok, new_position} -> {:ok, new_position}
@@ -167,16 +167,26 @@ defmodule TTFonture.BinaryReader do
     case read_uint8(file) do
       {:ok, length} ->
         case :file.read(file, length) do
-          {:ok, <<string_data::binary-size(length)>>} -> {:ok, string_data}
-          {:ok, _incomplete_data} -> {:error, "Incomplete data when reading Pascal string of length #{length}"}
-          {:error, reason} -> {:error, "Failed to read Pascal string data: #{format_error(reason)}"}
-          :eof -> {:error, "Reach EOF"}
+          {:ok, <<string_data::binary-size(length)>>} ->
+            {:ok, string_data}
+
+          {:ok, _incomplete_data} ->
+            {:error, "Incomplete data when reading Pascal string of length #{length}"}
+
+          {:error, reason} ->
+            {:error, "Failed to read Pascal string data: #{format_error(reason)}"}
+
+          :eof ->
+            {:error, "Reach EOF"}
         end
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
-  @spec read_at_offset(file :: pid(), offset :: non_neg_integer(), read_fn :: file_interaction()) :: result()
+  @spec read_at_offset(file :: pid(), offset :: non_neg_integer(), read_fn :: file_interaction()) ::
+          result()
   def read_at_offset(file, offset, read_fn) do
     case :file.position(file, {:bof, offset}) do
       {:ok, _new_position} ->
@@ -184,7 +194,8 @@ defmodule TTFonture.BinaryReader do
         # Restore original position (optional)
         # :file.position(file, original_position)
         result
-      {:error, reason} -> 
+
+      {:error, reason} ->
         {:error, "Failed to seek to offset #{offset}: #{format_error(reason)}"}
     end
   end

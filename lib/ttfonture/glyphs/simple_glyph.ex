@@ -47,6 +47,35 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
               offset_sign_or_skip_y: false
   end
 
+  @spec calculate_final_offset(
+          file :: pid(),
+          base_offset :: non_neg_integer(),
+          flag :: flag(),
+          offset_size_flag_bit :: non_neg_integer(),
+          offset_sign_or_skip_bit :: non_neg_integer()
+        ) :: non_neg_integer()
+  def calculate_final_offset(
+        file,
+        base_offset,
+        flag,
+        offset_size_flag_bit,
+        offset_sign_or_skip_bit
+      ) do
+    cond do
+      flag_bit_is_set(flag, offset_size_flag_bit) ->
+        {:ok, offset} = BinaryReader.read_uint8(file)
+        sign = if flag_bit_is_set(flag, offset_sign_or_skip_bit), do: 1, else: -1
+        base_offset + offset * sign
+
+      not flag_bit_is_set(flag, offset_sign_or_skip_bit) ->
+        {:ok, offset} = BinaryReader.read_int16(file)
+        base_offset + offset
+
+      true ->
+        base_offset
+    end
+  end
+
   @spec read_coordinates(file :: pid(), all_flags :: [flag()], reading_x: boolean()) :: [
           integer()
         ]
@@ -55,25 +84,19 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
     offset_sign_or_skip_bit = if reading_x, do: 4, else: 5
 
     {coordinates, _} =
-      Enum.reduce(all_flags, {[], 0}, fn flag, {acc, last} ->
-        base_offset = last
+      Enum.reduce(all_flags, {[], 0}, fn flag, {acc, last_offset} ->
+        base_offset = last_offset
 
         _on_curve = flag_bit_is_set(flag, 0)
 
         final_offset =
-          cond do
-            flag_bit_is_set(flag, offset_size_flag_bit) ->
-              {:ok, offset} = BinaryReader.read_uint8(file)
-              sign = if flag_bit_is_set(flag, offset_sign_or_skip_bit), do: 1, else: -1
-              base_offset + offset * sign
-
-            not flag_bit_is_set(flag, offset_sign_or_skip_bit) ->
-              {:ok, offset} = BinaryReader.read_int16(file)
-              base_offset + offset
-
-            true ->
-              base_offset
-          end
+          calculate_final_offset(
+            file,
+            base_offset,
+            flag,
+            offset_size_flag_bit,
+            offset_sign_or_skip_bit
+          )
 
         {[final_offset | acc], final_offset}
       end)
@@ -100,20 +123,24 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
     }
   end
 
-  @spec collect_flags(file :: pid(), num_points :: non_neg_integer(), index :: non_neg_integer()) ::
+  @spec collect_flags(
+          file :: pid(),
+          number_of_points :: non_neg_integer(),
+          index :: non_neg_integer()
+        ) ::
           [flag()]
-  def collect_flags(_, num_points, index) when index >= num_points, do: []
+  def collect_flags(_, number_of_points, index) when index >= number_of_points, do: []
 
-  def collect_flags(file, num_points, index) do
+  def collect_flags(file, number_of_points, index) do
     {:ok, flag} = BinaryReader.read_uint8(file)
 
     if flag_bit_is_set(flag, 3) do
       {:ok, number_of_copies} = BinaryReader.read_uint8(file)
 
       List.duplicate(flag, number_of_copies) ++
-        collect_flags(file, num_points, index + number_of_copies)
+        collect_flags(file, number_of_points, index + number_of_copies)
     else
-      [flag | collect_flags(file, num_points, index + 1)]
+      [flag | collect_flags(file, number_of_points, index + 1)]
     end
   end
 
@@ -138,7 +165,7 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
         val
       end)
 
-    num_points = List.last(contour_end_indices) + 1
+    number_of_points = List.last(contour_end_indices) + 1
 
     {:ok, instruction_bytes} = BinaryReader.read_int16(file)
 
@@ -148,7 +175,7 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
         instruction
       end)
 
-    all_flags = collect_flags(file, num_points, 0)
+    all_flags = collect_flags(file, number_of_points, 0)
 
     coords_x = read_coordinates(file, all_flags, reading_x: true)
     coords_y = read_coordinates(file, all_flags, reading_x: false)

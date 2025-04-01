@@ -2,12 +2,34 @@ defmodule TTFonture.Glyphs.CompoundGlyph do
   import TTFonture.Utility, only: [flag_bit_is_set: 2]
   alias TTFonture.BinaryReader
 
+  @type t() :: %__MODULE__{
+          x_min: integer(),
+          y_min: integer(),
+          x_max: integer(),
+          y_max: integer(),
+          components: [{non_neg_integer(), integer(), integer(), transformation()}]
+        }
+  @type index() :: non_neg_integer()
+  @type transformation() ::
+          %{type: :uniform_scale, scale: float()}
+          | %{type: :xy_scale, x_scale: float(), y_scale: float()}
+          | %{
+              type: :matrix,
+              x_scale: float(),
+              scale01: float(),
+              scale10: float(),
+              y_scale: float()
+            }
+          | %{type: :identity}
+  @type component() :: {index(), integer(), integer(), transformation()}
+
   defstruct x_min: 0,
             y_min: 0,
             x_max: 0,
             y_max: 0,
             components: []
 
+  @spec read_transformation(file :: pid(), flag :: non_neg_integer()) :: transformation()
   def read_transformation(file, flag) do
     cond do
       # WE_HAVE_A_SCALE
@@ -35,6 +57,7 @@ defmodule TTFonture.Glyphs.CompoundGlyph do
     end
   end
 
+  @spec read_components(file :: pid()) :: [component()]
   def read_components(file) do
     {:ok, flag} = BinaryReader.read_uint16(file)
     {:ok, glyph_index} = BinaryReader.read_uint16(file)
@@ -57,11 +80,13 @@ defmodule TTFonture.Glyphs.CompoundGlyph do
       else: [{glyph_index, argument_1, argument_2, transformation}]
   end
 
+  @spec read(file :: pid(), offset :: non_neg_integer()) :: __MODULE__.t()
   def read(file, offset) do
     :file.position(file, offset)
     read(file)
   end
 
+  @spec read(file :: pid()) :: __MODULE__.t()
   def read(file) do
     # Skip numberOfContours
     BinaryReader.skip_bytes(file, 2)

@@ -3,10 +3,18 @@ defmodule TTFonture do
   alias TTFonture.Glyphs.SimpleGlyph
   alias TTFonture.BinaryReader
 
-  @spec get_table_directory(binary()) :: map()
-  @spec get_table_directory(pid()) :: map()
+  @type glyph() :: SimpleGlyph.t() | CompoundGlyph.t()
+  @type table_directory() :: %{
+          binary() => [
+            checksum: non_neg_integer(),
+            offset: non_neg_integer(),
+            length: non_neg_integer()
+          ]
+        }
+
   def get_table_directory(file_path \\ "data/test.ttf")
 
+  @spec get_table_directory(binary()) :: table_directory() | {:error, binary()}
   def get_table_directory(file_path) when is_binary(file_path) do
     case File.open(file_path, [:read, :binary]) do
       {:ok, file} ->
@@ -21,6 +29,7 @@ defmodule TTFonture do
     end
   end
 
+  @spec get_table_directory(pid()) :: table_directory() | {:error, binary()}
   def get_table_directory(file) when is_pid(file) do
     # Skip scaler type
     BinaryReader.skip_bytes(file, 4)
@@ -42,7 +51,7 @@ defmodule TTFonture do
     end)
   end
 
-  @spec read_glyph(file :: pid(), offset :: non_neg_integer()) :: SimpleGlyph.t() | %CompoundGlyph{}
+  @spec read_glyph(file :: pid(), offset :: non_neg_integer()) :: glyph()
   def read_glyph(file, offset) do
     {:ok, number_of_contours} =
       BinaryReader.read_at_offset(file, offset, &BinaryReader.read_int16/1)
@@ -54,6 +63,7 @@ defmodule TTFonture do
 
   def get_all_glyph_locations(font_path \\ "data/test.ttf")
 
+  @spec get_all_glyph_locations(font_path :: binary()) :: [non_neg_integer()] | {:error, binary()}
   def get_all_glyph_locations(font_path) when is_binary(font_path) do
     case File.open(font_path, [:read, :binary]) do
       {:ok, file} ->
@@ -68,6 +78,7 @@ defmodule TTFonture do
     end
   end
 
+  @spec get_all_glyph_locations(file :: pid()) :: [non_neg_integer()]
   def get_all_glyph_locations(file) when is_pid(file) do
     table_directory = get_table_directory(file)
 
@@ -109,6 +120,7 @@ defmodule TTFonture do
     all_glyph_locations
   end
 
+  @spec read_all_glyphs(font_path :: binary()) :: [glyph()] | {:error, binary()}
   def read_all_glyphs(font_path \\ "data/test.ttf") do
     case File.open(font_path, [:read, :binary]) do
       {:ok, file} ->
