@@ -1,16 +1,92 @@
 defmodule TTFonture.Tables.Loca do
+  @moduledoc """
+  Handles the Location Table (loca) in TrueType font files.
+  
+  The Loca module reads and interprets the 'loca' table, which contains offsets to
+  each glyph in the 'glyf' table. This module supports both short (16-bit) and long
+  (32-bit) format offset entries, choosing the appropriate format based on the
+  'indexToLocFormat' field in the font's header.
+  
+  The primary functions of this module are:
+  
+  1. Reading the raw location offsets from the 'loca' table
+  2. Converting these relative offsets to absolute file positions
+  
+  ## Table Format
+  
+  The 'loca' table consists of an array of offsets, where:
+  - Format 0: Each offset is a 16-bit value that must be multiplied by 2
+  - Format 1: Each offset is a 32-bit value used directly
+  
+  The format is determined by the 'indexToLocFormat' field in the 'head' table.
+  
+  ## Usage Example
+  
+  ```elixir
+  # First register a font file
+  TTFonture.FileRegister.register("fonts/opensans.ttf")
+  
+  # Get raw location offsets
+  loca_offsets = TTFonture.Tables.Loca.read()
+  
+  # Get absolute offsets (including glyf table starting position)
+  absolute_offsets = TTFonture.Tables.Loca.get_absolute_offsets()
+  
+  # Work with a specific file handle
+  {:ok, file} = File.open("fonts/roboto.ttf", [:binary, :read])
+  absolute_offsets = TTFonture.Tables.Loca.get_absolute_offsets(file)
+  ```
+  """
+
   alias TTFonture.FileRegister
   alias TTFonture.BinaryReader
 
   @type t() :: [offset()]
   @type offset() :: non_neg_integer()
 
-  @spec read(file :: pid()) :: __MODULE__.t()
+  @doc """
+  Reads the 'loca' table from the current font file in FileRegister.
+  
+  Uses the current file set in FileRegister to read the location offsets.
+  
+  ## Returns
+  
+  A list of relative offsets from the start of the 'glyf' table to each glyph.
+  
+  ## Raises
+  
+  Raises an error if no file is currently registered in FileRegister.
+  
+  ## Example
+  
+  ```elixir
+  # First register a font file
+  TTFonture.FileRegister.register("fonts/opensans.ttf")
+  
+  # Then read the loca table
+  loca_offsets = TTFonture.Tables.Loca.read()
+  ```
+  """
+  @spec read() :: __MODULE__.t()
   def read do
     file_info = FileRegister.current()
     read(file_info)
   end
 
+  @doc """
+  Reads the 'loca' table from a specified font file.
+  
+  This overload accepts a direct file handle and builds the necessary table directory
+  information before proceeding with reading the location offsets.
+  
+  ## Parameters
+  
+  - `file`: The file handle (pid) to read from
+  
+  ## Returns
+  
+  A list of relative offsets from the start of the 'glyf' table to each glyph.
+  """
   @spec read(file :: pid()) :: __MODULE__.t()
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
@@ -54,12 +130,50 @@ defmodule TTFonture.Tables.Loca do
     all_glyph_locations
   end
 
+  @doc """
+  Gets absolute file offsets for all glyphs from the current font file.
+  
+  Combines the relative offsets from the 'loca' table with the starting position
+  of the 'glyf' table to produce absolute file offsets for each glyph.
+  
+  ## Returns
+  
+  A list of absolute file offsets pointing to each glyph.
+  
+  ## Raises
+  
+  Raises an error if no file is currently registered in FileRegister.
+  
+  ## Example
+  
+  ```elixir
+  # First register a font file
+  TTFonture.FileRegister.register("fonts/opensans.ttf")
+  
+  # Get absolute offsets for all glyphs
+  absolute_offsets = TTFonture.Tables.Loca.get_absolute_offsets()
+  ```
+  """
   @spec get_absolute_offsets() :: __MODULE__.t()
   def get_absolute_offsets do
     file_info = FileRegister.current()
     get_absolute_offsets(file_info)
   end
 
+  @doc """
+  Gets absolute file offsets for all glyphs from a specified font file.
+  
+  This overload accepts a direct file handle and builds the necessary table directory
+  information before calculating absolute offsets.
+  
+  ## Parameters
+  
+  - `file`: The file handle (pid) to read from
+  
+  ## Returns
+  
+  A list of absolute file offsets pointing to each glyph.
+  """
   @spec get_absolute_offsets(file :: pid()) :: __MODULE__.t()
   def get_absolute_offsets(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)

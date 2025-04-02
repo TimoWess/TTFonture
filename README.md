@@ -74,10 +74,8 @@ end)
 ## Module Structure
 
 - `TTFonture` - Main module for high-level font operations
-- `TTFonture.BinaryReader` - Utilities for reading binary TTF data
 - `TTFonture.Glyphs.SimpleGlyph` - Parser for simple (non-composite) glyphs
 - `TTFonture.Glyphs.CompoundGlyph` - Parser for compound glyphs
-- `TTFonture.Utility` - Helper functions for bit manipulation
 
 ## Development
 
