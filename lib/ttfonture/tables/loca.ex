@@ -1,13 +1,25 @@
 defmodule TTFonture.Tables.Loca do
+  alias TTFonture.FileRegister
   alias TTFonture.BinaryReader
 
   @type t() :: [offset()]
   @type offset() :: non_neg_integer()
 
   @spec read(file :: pid()) :: __MODULE__.t()
+  def read do
+    file_info = FileRegister.current()
+    read(file_info)
+  end
+
+  @spec read(file :: pid()) :: __MODULE__.t()
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
+    file_info = %{pid: file, table_directory: table_directory}
+    read(file_info)
+  end
 
+  @spec read(FileRegister.file_info()) :: __MODULE__.t()
+  def read(%{pid: file, table_directory: table_directory}) do
     # Skip unused: version
     maxp_offset = Keyword.get(table_directory["maxp"], :offset) + 4
 
@@ -42,11 +54,23 @@ defmodule TTFonture.Tables.Loca do
     all_glyph_locations
   end
 
+  @spec get_absolute_offsets() :: __MODULE__.t()
+  def get_absolute_offsets do
+    file_info = FileRegister.current()
+    get_absolute_offsets(file_info)
+  end
+
   @spec get_absolute_offsets(file :: pid()) :: __MODULE__.t()
   def get_absolute_offsets(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
+    file_info = %{pid: file, table_directory: table_directory}
+    get_absolute_offsets(file_info)
+  end
+
+  @spec get_absolute_offsets(file_info :: FileRegister.file_info()) :: __MODULE__.t()
+  def get_absolute_offsets(file_info = %{table_directory: table_directory}) do
     glyph_table_start = Keyword.get(table_directory["glyf"], :offset)
-    loca_table_entries = read(file)
+    loca_table_entries = read(file_info)
 
     Enum.map(loca_table_entries, fn relative_offset -> relative_offset + glyph_table_start end)
   end

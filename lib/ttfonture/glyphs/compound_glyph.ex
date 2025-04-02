@@ -30,7 +30,7 @@ defmodule TTFonture.Glyphs.CompoundGlyph do
             components: []
 
   @spec read_transformation(file :: pid(), flag :: non_neg_integer()) :: transformation()
-  def read_transformation(file, flag) do
+  defp read_transformation(file, flag) do
     cond do
       # WE_HAVE_A_SCALE
       flag_bit_is_set(flag, 3) ->
@@ -58,7 +58,7 @@ defmodule TTFonture.Glyphs.CompoundGlyph do
   end
 
   @spec read_components(file :: pid()) :: [component()]
-  def read_components(file) do
+  defp read_components(file) do
     {:ok, flag} = BinaryReader.read_uint16(file)
     {:ok, glyph_index} = BinaryReader.read_uint16(file)
 
