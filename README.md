@@ -86,13 +86,6 @@ end)
 ```bash
 mix test
 ```
-
-### Building Documentation
-
-```bash
-mix docs
-```
-
 ## License
 
 [MIT License](LICENSE)
