@@ -55,12 +55,12 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
           offset_sign_or_skip_bit :: non_neg_integer()
         ) :: non_neg_integer()
   defp calculate_final_offset(
-        file,
-        base_offset,
-        flag,
-        offset_size_flag_bit,
-        offset_sign_or_skip_bit
-      ) do
+         file,
+         base_offset,
+         flag,
+         offset_size_flag_bit,
+         offset_sign_or_skip_bit
+       ) do
     cond do
       flag_bit_is_set(flag, offset_size_flag_bit) ->
         {:ok, offset} = BinaryReader.read_uint8(file)

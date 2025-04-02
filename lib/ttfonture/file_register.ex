@@ -13,6 +13,7 @@ defmodule TTFonture.FileRegister do
           ]
         }
   @type file_info() :: %{pid: pid(), table_directory: table_directory()}
+  @type state() :: %{files: %{binary() => file_info()}, current: file_info() | nil}
 
   @doc """
   Starts the FileRegister agent.
@@ -26,6 +27,7 @@ defmodule TTFonture.FileRegister do
   and sets it as the current file.
   Returns {file_pid, table_directory}.
   """
+  @spec register(path :: binary()) :: file_info()
   def register(path) do
     file_info =
       Agent.get(__MODULE__, fn state ->
@@ -56,6 +58,7 @@ defmodule TTFonture.FileRegister do
   Returns the current file information (PID and table directory),
   or raises if no file is registered.
   """
+  @spec current() :: file_info()
   def current do
     Agent.get(__MODULE__, fn state ->
       if is_nil(state.current) do
@@ -69,6 +72,7 @@ defmodule TTFonture.FileRegister do
   @doc """
   Returns just the PID of the current file.
   """
+  @spec current_pid() :: pid()
   def current_pid do
     current().pid
   end
@@ -76,13 +80,16 @@ defmodule TTFonture.FileRegister do
   @doc """
   Returns just the table directory of the current file.
   """
+  @spec current_table_directory() :: table_directory()
   def current_table_directory do
     current().table_directory
   end
 
   @doc """
   Closes all open files and clears the registry.
+  Returns the last state before clearing it.
   """
+  @spec close_all() :: state()
   def close_all do
     Agent.get_and_update(__MODULE__, fn state ->
       Enum.each(state.files, fn {_path, file_info} ->
@@ -95,7 +102,9 @@ defmodule TTFonture.FileRegister do
 
   @doc """
   Closes a specific file by path.
+  Returns `file_info` of closed file or `nil` if the file wasn't registered
   """
+  @spec close(path :: binary()) :: {file_info()}
   def close(path) do
     Agent.get_and_update(__MODULE__, fn state ->
       case Map.fetch(state.files, path) do

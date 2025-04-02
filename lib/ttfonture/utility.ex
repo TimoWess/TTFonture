@@ -1,4 +1,6 @@
 defmodule TTFonture.Utility do
+  @moduledoc false
+
   import Bitwise, only: [>>>: 2, &&&: 2]
 
   @spec flag_bit_is_set(flag :: integer(), bit_index :: non_neg_integer()) :: boolean()

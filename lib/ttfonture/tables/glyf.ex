@@ -35,7 +35,8 @@ defmodule TTFonture.Tables.Glyf do
     all_glyph_locations =
       Loca.get_absolute_offsets(file_info) |> Enum.slice(0..-2//1)
 
-    Enum.map(all_glyph_locations, fn offset -> 
-      read_glyph(file_info.pid, offset) end)
+    Enum.map(all_glyph_locations, fn offset ->
+      read_glyph(file_info.pid, offset)
+    end)
   end
 end

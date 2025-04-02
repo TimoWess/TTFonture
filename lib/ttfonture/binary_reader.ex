@@ -1,4 +1,6 @@
 defmodule TTFonture.BinaryReader do
+  @moduledoc false
+
   @type binary_term() :: integer() | float() | binary()
   @type result() :: {:ok, binary_term()} | {:error, String.t()}
   @type file_interaction() :: (file :: pid() -> result :: result())
