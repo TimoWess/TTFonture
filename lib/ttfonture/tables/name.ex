@@ -31,7 +31,7 @@ defmodule TTFonture.Tables.Name do
          {:ok, count} <- BinaryReader.read_uint16(file),
          {:ok, string_offset} <- BinaryReader.read_uint16(file),
          {:ok, name_records} <- read_name_records(file, count),
-         {:ok, names} <- read_names_of_records(file, name_records) do
+         {:ok, names} <- read_names_of_records(file, name_records, name_offset + string_offset) do
       {:ok,
        %__MODULE__{
          format: format,
@@ -47,9 +47,20 @@ defmodule TTFonture.Tables.Name do
 
   defp read_name(record, file) do
     {:ok, data} = :file.read(file, record.length)
-    data_string = :unicode.characters_to_binary(data, :utf16, :utf8)
-    IO.inspect(data_string)
-    {:ok, data}
+
+    data_string =
+      case record.platform_id do
+        # Unicode
+        0 -> :unicode.characters_to_binary(data, {:utf16, :big}, :utf8)
+        # Macintosh
+        1 -> data
+        # Deprecated
+        2 -> :unicode.characters_to_binary(data, {:utf16, :big}, :utf8)
+        # Microsoft
+        3 -> :unicode.characters_to_binary(data, {:utf16, :big}, :utf8)
+      end
+
+    {:ok, data_string}
   end
 
   defp read_name_records(file, count) do
@@ -66,10 +77,11 @@ defmodule TTFonture.Tables.Name do
     end
   end
 
-  defp read_names_of_records(file, name_records) do
+  defp read_names_of_records(file, name_records, base_offset) do
     try do
       res =
         Enum.map(name_records, fn record ->
+          :file.position(file, {:bof, base_offset + record.offset})
           {:ok, name} = read_name(record, file)
           name
         end)
