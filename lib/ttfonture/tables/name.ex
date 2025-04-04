@@ -1,28 +1,69 @@
 defmodule TTFonture.Tables.Name do
+  @moduledoc """
+  Struct representing the 'name' table in a TrueType/OpenType Font.
+
+  The 'name' table contains human-readable naming information for the font,
+  including family names, style names, copyright notices, and other textual metadata.
+  This table allows for multiple languages and platform-specific encodings of the same information.
+  """
+
   alias TTFonture.BinaryReader
   alias TTFonture.FileRegister
   alias TTFonture.Tables.Name.NameRecord
 
+  @typedoc """
+  Type representing the 'name' table structure.
+
+  Fields:
+  * `:format` - Format selector (0 = standard format, 1 = extended format with language tags)
+  * `:count` - Number of name records in the table
+  * `:string_offset` - Offset to the beginning of the string storage area (from start of the name table)
+  * `:name_records` - List of name records containing metadata about each stored string
+  * `:names` - List of parsed name strings retrieved from the font
+  """
   @type t :: %__MODULE__{
           format: non_neg_integer(),
           count: non_neg_integer(),
           string_offset: non_neg_integer(),
           name_records: [NameRecord.t()],
-          names: map()
+          names: [String.t()]
         }
 
-  defstruct format: 0, count: 0, string_offset: 0, name_records: [], names: %{}
+  defstruct format: 0, count: 0, string_offset: 0, name_records: [], names: []
 
+  @doc """
+  Reads the 'name' table from the currently registered font file.
+
+  ## Returns
+
+  Parsed name table structure with all name records and strings.
+  """
+  @spec read() :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def read do
     file_info = FileRegister.current()
     read(file_info)
   end
 
+  @doc """
+  Reads the 'name' table from the provided font file.
+
+  ## Parameters
+
+  * `file` - Open file handle to the font file
+
+  ## Returns
+
+  * `{:ok, %TTFonture.Tables.Name{}}` - Successfully parsed name table
+  * `{:error, reason}` - Error reading the table
+  """
+  @spec read(file :: pid()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
     read(%{pid: file, table_directory: table_directory})
   end
 
+  @spec read(file_info :: FileRegister.file_info()) ::
+          {:ok, __MODULE__.t()} | {:error, String.t()}
   def read(%{pid: file, table_directory: table_directory}) do
     name_offset = Keyword.get(table_directory["name"], :offset)
     :file.position(file, name_offset)
@@ -45,6 +86,9 @@ defmodule TTFonture.Tables.Name do
     end
   end
 
+  @doc false
+  @spec read_name(name_record :: NameRecord.t(), file :: pid()) ::
+          {:ok, String.t()} | {:error, String.t()} | {:incomplete, String.t()}
   defp read_name(record, file) do
     {:ok, data} = :file.read(file, record.length)
 
@@ -60,9 +104,23 @@ defmodule TTFonture.Tables.Name do
         3 -> :unicode.characters_to_binary(data, {:utf16, :big}, :utf8)
       end
 
-    {:ok, data_string}
+    case data_string do
+      {:error, partial_data, rest_data} ->
+        {:error,
+         "Failed to read name string of record: #{record}\nPartial data read: #{partial_data}\nRest data: #{rest_data}"}
+
+      {:incomplete, partial_data, rest_data} ->
+        {:incomplete,
+         "Binary data incomplete for record: #{record}\nPartial data read: #{partial_data}\nRest data: #{rest_data}"}
+
+      name_string ->
+        {:ok, name_string}
+    end
   end
 
+  @doc false
+  @spec read_name_records(file :: pid(), count :: non_neg_integer()) ::
+          {:ok, [NameRecord.t()]} | {:error, String.t()}
   defp read_name_records(file, count) do
     try do
       res =
@@ -77,6 +135,12 @@ defmodule TTFonture.Tables.Name do
     end
   end
 
+  @doc false
+  @spec read_names_of_records(
+          file :: pid(),
+          name_records :: [NameRecord.t()],
+          base_offset :: non_neg_integer()
+        ) :: {:ok, [String.t()]} | {:error, String.t()}
   defp read_names_of_records(file, name_records, base_offset) do
     try do
       res =

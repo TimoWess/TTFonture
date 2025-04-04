@@ -1,7 +1,7 @@
 defmodule TTFonture.Tables.Maxp do
   @moduledoc """
   Struct representing the 'maxp' table in a TrueType Font.
-  
+
   The 'maxp' table establishes the memory requirements for a font.
   """
 
@@ -45,23 +45,21 @@ defmodule TTFonture.Tables.Maxp do
           max_component_depth: non_neg_integer()
         }
 
-  defstruct [
-    version: 0x00010000,
-    num_glyphs: 0,
-    max_points: 0,
-    max_contours: 0,
-    max_component_points: 0,
-    max_component_contours: 0,
-    max_zones: 2,
-    max_twilight_points: 0,
-    max_storage: 0,
-    max_function_defs: 0,
-    max_instruction_defs: 0,
-    max_stack_elements: 0,
-    max_size_of_instructions: 0,
-    max_component_elements: 0,
-    max_component_depth: 0
-  ]
+  defstruct version: 0x00010000,
+            num_glyphs: 0,
+            max_points: 0,
+            max_contours: 0,
+            max_component_points: 0,
+            max_component_contours: 0,
+            max_zones: 2,
+            max_twilight_points: 0,
+            max_storage: 0,
+            max_function_defs: 0,
+            max_instruction_defs: 0,
+            max_stack_elements: 0,
+            max_size_of_instructions: 0,
+            max_component_elements: 0,
+            max_component_depth: 0
 
   @spec read() :: __MODULE__.t()
   def read do
