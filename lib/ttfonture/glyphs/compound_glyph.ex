@@ -19,7 +19,7 @@ defmodule TTFonture.Glyphs.CompoundGlyph do
           y_min: integer(),
           x_max: integer(),
           y_max: integer(),
-          components: [{non_neg_integer(), integer(), integer(), transformation()}]
+          components: [component()]
         }
   @type index() :: non_neg_integer()
   @type transformation() ::
