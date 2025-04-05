@@ -214,6 +214,24 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
     end
   end
 
+  def collect_contour_end_indices(_, number_of_contours) when number_of_contours <= 0, do: []
+
+  def collect_contour_end_indices(file, number_of_contours) do
+    Enum.map(1..number_of_contours, fn _ ->
+      {:ok, val} = BinaryReader.read_uint16(file)
+      val
+    end)
+  end
+
+  def collect_instructions(_, instruction_bytes) when instruction_bytes <= 0, do: []
+
+  def collect_instructions(file, instruction_bytes) do
+    Enum.map(1..instruction_bytes, fn _ ->
+      {:ok, instruction} = BinaryReader.read_uint8(file)
+      instruction
+    end)
+  end
+
   @doc """
   Reads a SimpleGlyph from a file at a specific offset.
 
@@ -255,21 +273,14 @@ defmodule TTFonture.Glyphs.SimpleGlyph do
     {:ok, x_max} = BinaryReader.read_fword(file)
     {:ok, y_max} = BinaryReader.read_fword(file)
 
-    contour_end_indices =
-      Enum.map(1..number_of_contours, fn _ ->
-        {:ok, val} = BinaryReader.read_uint16(file)
-        val
-      end)
-
-    number_of_points = List.last(contour_end_indices) + 1
+    contour_end_indices = collect_contour_end_indices(file, number_of_contours)
 
     {:ok, instruction_bytes} = BinaryReader.read_int16(file)
 
-    instructions =
-      Enum.map(1..instruction_bytes, fn _ ->
-        {:ok, instruction} = BinaryReader.read_uint8(file)
-        instruction
-      end)
+    instructions = collect_instructions(file, instruction_bytes)
+
+    number_of_points =
+      if Enum.empty?(contour_end_indices), do: 0, else: List.last(contour_end_indices) + 1
 
     all_flags = collect_flags(file, number_of_points, 0)
 
