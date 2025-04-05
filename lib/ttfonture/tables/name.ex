@@ -19,17 +19,15 @@ defmodule TTFonture.Tables.Name do
   * `:count` - Number of name records in the table
   * `:string_offset` - Offset to the beginning of the string storage area (from start of the name table)
   * `:name_records` - List of name records containing metadata about each stored string
-  * `:names` - List of parsed name strings retrieved from the font
   """
   @type t :: %__MODULE__{
           format: non_neg_integer(),
           count: non_neg_integer(),
           string_offset: non_neg_integer(),
-          name_records: [NameRecord.t()],
-          names: [String.t()]
+          name_records: [NameRecord.t()]
         }
 
-  defstruct format: 0, count: 0, string_offset: 0, name_records: [], names: []
+  defstruct format: 0, count: 0, string_offset: 0, name_records: []
 
   @doc """
   Reads the 'name' table from the currently registered font file.
@@ -72,14 +70,14 @@ defmodule TTFonture.Tables.Name do
          {:ok, count} <- BinaryReader.read_uint16(file),
          {:ok, string_offset} <- BinaryReader.read_uint16(file),
          {:ok, name_records} <- read_name_records(file, count),
-         {:ok, names} <- read_names_of_records(file, name_records, name_offset + string_offset) do
+         {:ok, final_records} <-
+           read_names_of_records(file, name_records, name_offset + string_offset) do
       {:ok,
        %__MODULE__{
          format: format,
          count: count,
          string_offset: string_offset,
-         name_records: name_records,
-         names: names
+         name_records: final_records
        }}
     else
       {:error, reason} -> {:error, reason}
@@ -136,6 +134,11 @@ defmodule TTFonture.Tables.Name do
   end
 
   @doc false
+  defp apply_name_to_record(name, record) do
+    %NameRecord{record | name: name}
+  end
+
+  @doc false
   @spec read_names_of_records(
           file :: pid(),
           name_records :: [NameRecord.t()],
@@ -147,7 +150,7 @@ defmodule TTFonture.Tables.Name do
         Enum.map(name_records, fn record ->
           :file.position(file, {:bof, base_offset + record.offset})
           {:ok, name} = read_name(record, file)
-          name
+          apply_name_to_record(name, record)
         end)
 
       {:ok, res}

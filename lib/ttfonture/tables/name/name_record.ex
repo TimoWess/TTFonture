@@ -22,7 +22,8 @@ defmodule TTFonture.Tables.Name.NameRecord do
           language_id: non_neg_integer(),
           name_id: non_neg_integer(),
           length: non_neg_integer(),
-          offset: non_neg_integer()
+          offset: non_neg_integer(),
+          name: String.t()
         }
 
   defstruct platform_id: 0,
@@ -30,7 +31,8 @@ defmodule TTFonture.Tables.Name.NameRecord do
             language_id: 0,
             name_id: 0,
             length: 0,
-            offset: 0
+            offset: 0,
+            name: ""
 
   @doc """
   Reads a NameRecord from the provided file handle.
