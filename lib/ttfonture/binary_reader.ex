@@ -34,8 +34,8 @@ defmodule TTFonture.BinaryReader do
     end
   end
 
-  @spec read_uword(file :: pid()) :: result()
-  def read_uword(file) do
+  @spec read_ufword(file :: pid()) :: result()
+  def read_ufword(file) do
     case :file.read(file, 2) do
       {:ok, <<uword::unsigned-integer-16>>} -> {:ok, uword}
       {:ok, _incomplete_data} -> {:error, "Incomplete data when reading UWord value"}

@@ -1,7 +1,33 @@
 defmodule TTFonture.Tables.Hhea do
+  @moduledoc """
+  Struct representing the 'hhea' (Horizontal Header) table in a TrueType/OpenType Font.
+
+  The 'hhea' table contains global information about horizontal layout features of the font.
+  It defines metrics like ascent, descent, line gap, and other horizontal typographic values
+  that apply to the font as a whole.
+  """
+
   alias TTFonture.BinaryReader
   alias TTFonture.FileRegister
 
+  @typedoc """
+  Type representing the 'hhea' table structure.
+
+  Fields:
+  * `:version` - Version number of the table (normally 1.0)
+  * `:ascent` - Distance from baseline of highest ascender
+  * `:descent` - Distance from baseline of lowest descender (typically negative)
+  * `:line_gap` - Typographic line gap
+  * `:advance_width_max` - Maximum advance width value in hmtx table
+  * `:min_left_side_bearing` - Minimum left sidebearing value in hmtx table
+  * `:min_right_side_bearing` - Minimum right sidebearing value
+  * `:x_max_extent` - Max(lsb + (xMax - xMin))
+  * `:caret_slope_rise` - Used to calculate the slope of the caret
+  * `:caret_slope_run` - Used to calculate the slope of the caret
+  * `:caret_offset` - The amount by which a slanted highlight on a glyph needs to be shifted
+  * `:metric_data_format` - Format of metrics data (set to 0)
+  * `:num_of_long_hor_metric` - Number of hMetric entries in hmtx table
+  """
   @type t() :: %__MODULE__{
           version: float(),
           ascent: integer(),
@@ -32,16 +58,38 @@ defmodule TTFonture.Tables.Hhea do
             metric_data_format: 0,
             num_of_long_hor_metric: 0
 
+  @doc """
+  Reads the 'hhea' table from the currently registered font file.
+
+  ## Returns
+
+  Parsed hhea table structure with all horizontal metrics information.
+  """
+  @spec read() :: __MODULE__.t() | {:error, String.t()}
   def read do
     file_info = FileRegister.current()
     read(file_info)
   end
 
+  @doc """
+  Reads the 'hhea' table from the provided font file.
+
+  ## Parameters
+
+  * `file` - Open file handle to the font file
+
+  ## Returns
+
+  * `%TTFonture.Tables.Hhea{}` - Successfully parsed hhea table
+  * `{:error, reason}` - Error reading the table
+  """
+  @spec read(file :: pid()) :: __MODULE__.t() | {:error, String.t()}
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
     read(%{pid: file, table_directory: table_directory})
   end
 
+  @spec read(FileRegister.file_info()) :: __MODULE__.t() | {:error, String.t()}
   def read(%{pid: file, table_directory: table_directory}) do
     head_offset = Keyword.get(table_directory["hhea"], :offset)
     :file.position(file, head_offset)
