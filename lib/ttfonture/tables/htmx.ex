@@ -27,7 +27,9 @@ defmodule TTFonture.Tables.Htmx do
   end
 
   @doc false
-  @spec collect_left_side_bearings(file :: pid(), num_of_lsb :: non_neg_integer()) :: [non_neg_integer()]
+  @spec collect_left_side_bearings(file :: pid(), num_of_lsb :: non_neg_integer()) :: [
+          non_neg_integer()
+        ]
   defp collect_left_side_bearings(_, num_of_lsb) when num_of_lsb <= 0, do: []
 
   defp collect_left_side_bearings(file, num_of_lsb) do
@@ -37,19 +39,19 @@ defmodule TTFonture.Tables.Htmx do
     end)
   end
 
-  @spec read() :: __MODULE__.t()
+  @spec read() :: {:ok, __MODULE__.t()}
   def read do
     file_info = FileRegister.current()
     read(file_info)
   end
 
-  @spec read(file :: pid()) :: __MODULE__.t()
+  @spec read(file :: pid()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
     read(%{pid: file, table_directory: table_directory})
   end
 
-  @spec read(file_info :: FileRegister.file_info()) :: __MODULE__.t()
+  @spec read(file_info :: FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file_info = %{pid: file, table_directory: table_directory}) do
     htmx_offset = Keyword.get(table_directory["hmtx"], :offset)
 
@@ -64,9 +66,10 @@ defmodule TTFonture.Tables.Htmx do
     h_metrics = collect_h_metrics(file, num_of_long_hor_metric)
     left_side_bearings = collect_left_side_bearings(file, num_of_lsb)
 
-    %__MODULE__{
-      h_metrics: h_metrics,
-      left_side_bearings: left_side_bearings
-    }
+    {:ok,
+     %__MODULE__{
+       h_metrics: h_metrics,
+       left_side_bearings: left_side_bearings
+     }}
   end
 end

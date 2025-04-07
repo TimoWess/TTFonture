@@ -67,7 +67,7 @@ defmodule TTFonture.Tables.Loca do
   loca_offsets = TTFonture.Tables.Loca.read()
   ```
   """
-  @spec read() :: __MODULE__.t()
+  @spec read() :: {:ok, __MODULE__.t()}
   def read do
     file_info = FileRegister.current()
     read(file_info)
@@ -87,14 +87,14 @@ defmodule TTFonture.Tables.Loca do
 
   A list of relative offsets from the start of the 'glyf' table to each glyph.
   """
-  @spec read(file :: pid()) :: __MODULE__.t()
+  @spec read(file :: pid()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
     file_info = %{pid: file, table_directory: table_directory}
     read(file_info)
   end
 
-  @spec read(FileRegister.file_info()) :: __MODULE__.t()
+  @spec read(FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(%{pid: file, table_directory: table_directory}) do
     # Skip unused: version
     maxp_offset = Keyword.get(table_directory["maxp"], :offset) + 4
@@ -127,7 +127,7 @@ defmodule TTFonture.Tables.Loca do
         end
       end)
 
-    all_glyph_locations
+    {:ok, all_glyph_locations}
   end
 
   @doc """
@@ -154,7 +154,7 @@ defmodule TTFonture.Tables.Loca do
   absolute_offsets = TTFonture.Tables.Loca.get_absolute_offsets()
   ```
   """
-  @spec get_absolute_offsets() :: __MODULE__.t()
+  @spec get_absolute_offsets() :: {:ok, __MODULE__.t()}
   def get_absolute_offsets do
     file_info = FileRegister.current()
     get_absolute_offsets(file_info)
@@ -174,18 +174,19 @@ defmodule TTFonture.Tables.Loca do
 
   A list of absolute file offsets pointing to each glyph.
   """
-  @spec get_absolute_offsets(file :: pid()) :: __MODULE__.t()
+  @spec get_absolute_offsets(file :: pid()) :: {:ok, __MODULE__.t()}
   def get_absolute_offsets(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
     file_info = %{pid: file, table_directory: table_directory}
     get_absolute_offsets(file_info)
   end
 
-  @spec get_absolute_offsets(file_info :: FileRegister.file_info()) :: __MODULE__.t()
+  @spec get_absolute_offsets(file_info :: FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def get_absolute_offsets(file_info = %{table_directory: table_directory}) do
     glyph_table_start = Keyword.get(table_directory["glyf"], :offset)
-    loca_table_entries = read(file_info)
+    {:ok, loca_table_entries} = read(file_info)
 
-    Enum.map(loca_table_entries, fn relative_offset -> relative_offset + glyph_table_start end)
+    {:ok,
+     Enum.map(loca_table_entries, fn relative_offset -> relative_offset + glyph_table_start end)}
   end
 end

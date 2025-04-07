@@ -65,7 +65,7 @@ defmodule TTFonture.Tables.Hhea do
 
   Parsed hhea table structure with all horizontal metrics information.
   """
-  @spec read() :: __MODULE__.t() | {:error, String.t()}
+  @spec read() :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def read do
     file_info = FileRegister.current()
     read(file_info)
@@ -83,13 +83,13 @@ defmodule TTFonture.Tables.Hhea do
   * `%TTFonture.Tables.Hhea{}` - Successfully parsed hhea table
   * `{:error, reason}` - Error reading the table
   """
-  @spec read(file :: pid()) :: __MODULE__.t() | {:error, String.t()}
+  @spec read(file :: pid()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
     read(%{pid: file, table_directory: table_directory})
   end
 
-  @spec read(FileRegister.file_info()) :: __MODULE__.t() | {:error, String.t()}
+  @spec read(FileRegister.file_info()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def read(%{pid: file, table_directory: table_directory}) do
     head_offset = Keyword.get(table_directory["hhea"], :offset)
     :file.position(file, head_offset)
@@ -109,7 +109,8 @@ defmodule TTFonture.Tables.Hhea do
          {:ok, _} <- BinaryReader.skip_bytes(file, 8),
          {:ok, metric_data_format} <- BinaryReader.read_int16(file),
          {:ok, num_of_long_hor_metric} <- BinaryReader.read_uint16(file) do
-      %__MODULE__{
+      {:ok,
+        %__MODULE__{
         version: version,
         ascent: ascent,
         descent: descent,
@@ -123,7 +124,7 @@ defmodule TTFonture.Tables.Hhea do
         caret_offset: caret_offset,
         metric_data_format: metric_data_format,
         num_of_long_hor_metric: num_of_long_hor_metric
-      }
+      }}
     end
   end
 end
