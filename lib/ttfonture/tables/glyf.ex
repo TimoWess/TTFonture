@@ -127,8 +127,8 @@ defmodule TTFonture.Tables.Glyf do
   @spec read(file_info :: FileRegister.file_info()) :: {:ok, [glyph()]}
   def read(file_info) do
     # Last entry only needed to calculate length of the glyph
-    all_glyph_locations =
-      Loca.get_absolute_offsets(file_info) |> Enum.slice(0..-2//1)
+    {:ok, all_glyph_locations} = Loca.get_absolute_offsets(file_info)
+    all_glyph_locations = Enum.slice(all_glyph_locations, 0..-2//1)
 
     {:ok,
      Enum.map(all_glyph_locations, fn offset ->
