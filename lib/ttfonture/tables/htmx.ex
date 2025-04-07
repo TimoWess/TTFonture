@@ -55,8 +55,8 @@ defmodule TTFonture.Tables.Htmx do
   def read(file_info = %{pid: file, table_directory: table_directory}) do
     htmx_offset = Keyword.get(table_directory["hmtx"], :offset)
 
-    maxp_table = Maxp.read(file_info)
-    hhea_table = Hhea.read(file_info)
+    {:ok, maxp_table} = Maxp.read(file_info)
+    {:ok, hhea_table} = Hhea.read(file_info)
 
     num_of_long_hor_metric = hhea_table.num_of_long_hor_metric
     num_of_glyphs = maxp_table.num_glyphs
