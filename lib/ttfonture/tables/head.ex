@@ -68,19 +68,19 @@ defmodule TTFonture.Tables.Head do
             index_to_loc_format: 0,
             glyph_data_format: 0
 
-  @spec read() :: __MODULE__.t()
+  @spec read() :: {:ok, __MODULE__.t()}
   def read do
     file_info = FileRegister.current()
     read(file_info)
   end
 
-  @spec read(file :: pid()) :: __MODULE__.t()
+  @spec read(file :: pid()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
     read(%{pid: file, table_directory: table_directory})
   end
 
-  @spec read(file_info :: FileRegister.file_info()) :: __MODULE__.t()
+  @spec read(file_info :: FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(%{pid: file, table_directory: table_directory}) do
     head_offset = Keyword.get(table_directory["head"], :offset)
     :file.position(file, head_offset)
@@ -102,25 +102,26 @@ defmodule TTFonture.Tables.Head do
          {:ok, font_direction_hint} <- BinaryReader.read_int16(file),
          {:ok, index_to_loc_format} <- BinaryReader.read_int16(file),
          {:ok, glyph_data_format} <- BinaryReader.read_int16(file) do
-      %__MODULE__{
-        version: version,
-        font_revision: font_revision,
-        checksum_adjustment: checksum_adjustment,
-        magic_number: magic_number,
-        flags: flags,
-        units_per_em: units_per_em,
-        created: created,
-        modified: modified,
-        x_min: x_min,
-        y_min: y_min,
-        x_max: x_max,
-        y_max: y_max,
-        mac_style: mac_style,
-        lowest_rec_ppem: lowest_rec_ppem,
-        font_direction_hint: font_direction_hint,
-        index_to_loc_format: index_to_loc_format,
-        glyph_data_format: glyph_data_format
-      }
+      {:ok,
+       %__MODULE__{
+         version: version,
+         font_revision: font_revision,
+         checksum_adjustment: checksum_adjustment,
+         magic_number: magic_number,
+         flags: flags,
+         units_per_em: units_per_em,
+         created: created,
+         modified: modified,
+         x_min: x_min,
+         y_min: y_min,
+         x_max: x_max,
+         y_max: y_max,
+         mac_style: mac_style,
+         lowest_rec_ppem: lowest_rec_ppem,
+         font_direction_hint: font_direction_hint,
+         index_to_loc_format: index_to_loc_format,
+         glyph_data_format: glyph_data_format
+       }}
     end
   end
 end
