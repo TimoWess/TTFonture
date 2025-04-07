@@ -184,7 +184,7 @@ defmodule TTFonture.Tables.Loca do
   @spec get_absolute_offsets(file_info :: FileRegister.file_info()) :: __MODULE__.t()
   def get_absolute_offsets(file_info = %{table_directory: table_directory}) do
     glyph_table_start = Keyword.get(table_directory["glyf"], :offset)
-    loca_table_entries = read(file_info)
+    {:ok, loca_table_entries} = read(file_info)
 
     Enum.map(loca_table_entries, fn relative_offset -> relative_offset + glyph_table_start end)
   end
