@@ -1,7 +1,7 @@
 defmodule TTFonture.Tables.Cmap.MappingSubtable do
   alias TTFonture.Tables.Cmap.EncodingSubtable
   alias TTFonture.BinaryReader
-  defstruct format: 0, length: 0, data: %{}
+  defstruct format: 0, data: %{}
 
   def collect_n_uint16(_file, 0), do: []
 
@@ -39,7 +39,7 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
     glyph_id_count = div(remaining_bytes, 2)  # 2 bytes per glyph ID
     {:ok, glyph_id_array} = collect_n_uint16(file, glyph_id_count)
 
-    %{
+    data = %{
       length: length,
       language: language,
       seg_count_x2: seg_count_x2,
@@ -53,6 +53,8 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
       id_range_offsets: id_range_offsets,
       glyph_id_array: glyph_id_array
     }
+
+    %__MODULE__{format: 4, data: data}
   end
 
   def read_by_format(file, 12) do
