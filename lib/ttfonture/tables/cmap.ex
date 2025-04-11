@@ -46,11 +46,12 @@ defmodule TTFonture.Tables.Cmap do
     encoding_subtables = collect_encoding_subtables(file, number_of_subtables)
     mapping_subtables = collect_mapping_subtables(file, cmap_offset, encoding_subtables)
 
-    %__MODULE__{
-      version: version,
-      number_of_subtables: number_of_subtables,
-      encoding_subtables: encoding_subtables,
-      mapping_subtables: mapping_subtables
-    }
+    {:ok,
+     %__MODULE__{
+       version: version,
+       number_of_subtables: number_of_subtables,
+       encoding_subtables: encoding_subtables,
+       mapping_subtables: mapping_subtables
+     }}
   end
 end
