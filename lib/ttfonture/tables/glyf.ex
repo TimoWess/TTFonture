@@ -97,6 +97,7 @@ defmodule TTFonture.Tables.Glyf do
   glyphs = TTFonture.Tables.Glyf.read()
   ```
   """
+  @spec read() :: {:ok, [glyph()]}
   def read do
     file_info = FileRegister.current()
     read(file_info)
@@ -116,21 +117,22 @@ defmodule TTFonture.Tables.Glyf do
 
   A list of glyph structs (mix of SimpleGlyph and CompoundGlyph)
   """
-  @spec read(file :: pid()) :: [glyph()]
+  @spec read(file :: pid()) :: {:ok, [glyph()]}
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
     file_info = %{pid: file, table_directory: table_directory}
     read(file_info)
   end
 
-  @spec read(file_info :: FileRegister.file_info()) :: [glyph()]
+  @spec read(file_info :: FileRegister.file_info()) :: {:ok, [glyph()]}
   def read(file_info) do
     # Last entry only needed to calculate length of the glyph
-    all_glyph_locations =
-      Loca.get_absolute_offsets(file_info) |> Enum.slice(0..-2//1)
+    {:ok, all_glyph_locations} = Loca.get_absolute_offsets(file_info)
+    all_glyph_locations = Enum.slice(all_glyph_locations, 0..-2//1)
 
-    Enum.map(all_glyph_locations, fn offset ->
-      read_glyph(file_info.pid, offset)
-    end)
+    {:ok,
+     Enum.map(all_glyph_locations, fn offset ->
+       read_glyph(file_info.pid, offset)
+     end)}
   end
 end

@@ -61,19 +61,19 @@ defmodule TTFonture.Tables.Maxp do
             max_component_elements: 0,
             max_component_depth: 0
 
-  @spec read() :: __MODULE__.t()
+  @spec read() :: {:ok, __MODULE__.t()}
   def read do
     file_info = FileRegister.current()
     read(file_info)
   end
 
-  @spec read(file :: pid()) :: __MODULE__.t()
+  @spec read(file :: pid()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
     read(%{pid: file, table_directory: table_directory})
   end
 
-  @spec read(file_info :: FileRegister.file_info()) :: __MODULE__.t()
+  @spec read(file_info :: FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(%{pid: file, table_directory: table_directory}) do
     maxp_offset = Keyword.get(table_directory["maxp"], :offset)
     :file.position(file, maxp_offset)
@@ -93,23 +93,24 @@ defmodule TTFonture.Tables.Maxp do
          {:ok, max_size_of_instructions} <- BinaryReader.read_uint16(file),
          {:ok, max_component_elements} <- BinaryReader.read_uint16(file),
          {:ok, max_component_depth} <- BinaryReader.read_uint16(file) do
-      %__MODULE__{
-        version: version,
-        num_glyphs: num_glyphs,
-        max_points: max_points,
-        max_contours: max_contours,
-        max_component_points: max_component_points,
-        max_component_contours: max_component_contours,
-        max_zones: max_zones,
-        max_twilight_points: max_twilight_points,
-        max_storage: max_storage,
-        max_function_defs: max_function_defs,
-        max_instruction_defs: max_instruction_defs,
-        max_stack_elements: max_stack_elements,
-        max_size_of_instructions: max_size_of_instructions,
-        max_component_elements: max_component_elements,
-        max_component_depth: max_component_depth
-      }
+      {:ok,
+       %__MODULE__{
+         version: version,
+         num_glyphs: num_glyphs,
+         max_points: max_points,
+         max_contours: max_contours,
+         max_component_points: max_component_points,
+         max_component_contours: max_component_contours,
+         max_zones: max_zones,
+         max_twilight_points: max_twilight_points,
+         max_storage: max_storage,
+         max_function_defs: max_function_defs,
+         max_instruction_defs: max_instruction_defs,
+         max_stack_elements: max_stack_elements,
+         max_size_of_instructions: max_size_of_instructions,
+         max_component_elements: max_component_elements,
+         max_component_depth: max_component_depth
+       }}
     end
   end
 end
