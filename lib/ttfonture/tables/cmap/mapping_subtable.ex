@@ -3,13 +3,30 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
   alias TTFonture.BinaryReader
   defstruct format: 0, data: %{}
 
-  def collect_n_uint16(_file, 0), do: []
+  def collect_n_uint16(_file, n) when n <= 0, do: []
 
-  def collect_n_uint16(file, seg_count) do
+  def collect_n_uint16(file, n) do
     {:ok,
-     Enum.map(1..seg_count, fn _ ->
+     Enum.map(1..n, fn _ ->
        {:ok, val} = BinaryReader.read_uint16(file)
        val
+     end)}
+  end
+
+  def collect_groups(_file, n_groups) when n_groups <= 0, do: []
+
+  def collect_groups(file, n_groups) do
+    {:ok,
+     Enum.map(1..n_groups, fn _ ->
+       {:ok, start_char_code} = BinaryReader.read_uint32(file)
+       {:ok, end_char_code} = BinaryReader.read_uint32(file)
+       {:ok, start_glyph_code} = BinaryReader.read_uint32(file)
+
+       %{
+         start_char_code: start_char_code,
+         end_char_code: end_char_code,
+         start_glyph_code: start_glyph_code
+       }
      end)}
   end
 
@@ -36,7 +53,8 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
     {:ok, id_range_offsets} = collect_n_uint16(file, seg_count)
 
     remaining_bytes = length - (14 + seg_count * 8 + 2)
-    glyph_id_count = div(remaining_bytes, 2)  # 2 bytes per glyph ID
+    # 2 bytes per glyph ID
+    glyph_id_count = div(remaining_bytes, 2)
     {:ok, glyph_id_array} = collect_n_uint16(file, glyph_id_count)
 
     data = %{
@@ -58,6 +76,14 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
   end
 
   def read_by_format(file, 12) do
-    :todo_12
+    {:ok, reserved} = BinaryReader.read_uint16(file)
+    {:ok, length} = BinaryReader.read_uint32(file)
+    {:ok, language} = BinaryReader.read_uint32(file)
+    {:ok, n_groups} = BinaryReader.read_uint32(file)
+    {:ok, groups} = collect_groups(file, n_groups)
+
+    data = %{reserved: reserved, length: length, language: language, n_groups: n_groups, groups: groups}
+
+    %__MODULE__{format: 12, data: data}
   end
 end
