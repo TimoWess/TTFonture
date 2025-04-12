@@ -1,11 +1,14 @@
 defmodule TTFonture.Tables.Cmap.MappingSubtable do
   alias TTFonture.Tables.Cmap.EncodingSubtable
   alias TTFonture.BinaryReader
+
+  @type t() :: %__MODULE__{format: non_neg_integer(), data: map()}
   defstruct format: 0, data: %{}
 
-  def collect_n_uint16(_file, n) when n <= 0, do: []
+  @spec collect_n_uint16(file :: pid(), n :: non_neg_integer()) :: {:ok, [non_neg_integer()]}
+  defp collect_n_uint16(_file, n) when n <= 0, do: []
 
-  def collect_n_uint16(file, n) do
+  defp collect_n_uint16(file, n) do
     {:ok,
      Enum.map(1..n, fn _ ->
        {:ok, val} = BinaryReader.read_uint16(file)
@@ -13,9 +16,18 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
      end)}
   end
 
-  def collect_groups(_file, n_groups) when n_groups <= 0, do: []
+  @spec collect_groups(file :: pid(), n_groups :: non_neg_integer()) ::
+          {:ok,
+           [
+             %{
+               start_char_code: non_neg_integer(),
+               end_char_code: non_neg_integer(),
+               start_glyph_code: non_neg_integer()
+             }
+           ]}
+  defp collect_groups(_file, n_groups) when n_groups <= 0, do: []
 
-  def collect_groups(file, n_groups) do
+  defp collect_groups(file, n_groups) do
     {:ok,
      Enum.map(1..n_groups, fn _ ->
        {:ok, start_char_code} = BinaryReader.read_uint32(file)
@@ -30,13 +42,16 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
      end)}
   end
 
+  @spec read(file :: pid, cmap_offset :: non_neg_integer(), EncodingSubtable.t()) ::
+          {:ok, __MODULE__.t()}
   def read(file, cmap_offset, %EncodingSubtable{offset: es_offset}) do
     :file.position(file, cmap_offset + es_offset)
     {:ok, format} = BinaryReader.read_uint16(file)
     read_by_format(file, format)
   end
 
-  def read_by_format(file, 4) do
+  @spec read_by_format(file :: pid(), format :: non_neg_integer()) :: {:ok, __MODULE__.t()}
+  defp read_by_format(file, 4) do
     {:ok, length} = BinaryReader.read_uint16(file)
     {:ok, language} = BinaryReader.read_uint16(file)
     {:ok, seg_count_x2} = BinaryReader.read_uint16(file)
@@ -72,18 +87,24 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
       glyph_id_array: glyph_id_array
     }
 
-    %__MODULE__{format: 4, data: data}
+    {:ok, %__MODULE__{format: 4, data: data}}
   end
 
-  def read_by_format(file, 12) do
+  defp read_by_format(file, 12) do
     {:ok, reserved} = BinaryReader.read_uint16(file)
     {:ok, length} = BinaryReader.read_uint32(file)
     {:ok, language} = BinaryReader.read_uint32(file)
     {:ok, n_groups} = BinaryReader.read_uint32(file)
     {:ok, groups} = collect_groups(file, n_groups)
 
-    data = %{reserved: reserved, length: length, language: language, n_groups: n_groups, groups: groups}
+    data = %{
+      reserved: reserved,
+      length: length,
+      language: language,
+      n_groups: n_groups,
+      groups: groups
+    }
 
-    %__MODULE__{format: 12, data: data}
+    {:ok, %__MODULE__{format: 12, data: data}}
   end
 end
