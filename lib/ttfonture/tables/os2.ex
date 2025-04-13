@@ -1,4 +1,6 @@
 defmodule TTFonture.Tables.OS2 do
+  import Bitwise, only: [&&&: 2]
+  alias TTFonture.Utility
   alias TTFonture.BinaryReader
   alias TTFonture.FileRegister
 
@@ -254,4 +256,65 @@ defmodule TTFonture.Tables.OS2 do
 
     {:ok, table}
   end
+
+  # Helper functions for interpreting OS/2 values
+
+  @doc """
+  Converts the fs_type field to permissions
+  """
+  def permissions(%__MODULE__{fs_type: fs_type}) do
+    %{
+      licensed_protected_font: Utility.flag_bit_is_set(fs_type, 1),
+      preview_and_print_embedding: Utility.flag_bit_is_set(fs_type, 2),
+      editable_embedding: Utility.flag_bit_is_set(fs_type, 3),
+      no_subsetting: Utility.flag_bit_is_set(fs_type, 8),
+      bitmap_embedding_only: Utility.flag_bit_is_set(fs_type, 9)
+    }
+  end
+
+  @doc """
+  Converts the fs_selection field to style flags
+  """
+  def style_flags(%__MODULE__{fs_selection: fs_selection}) do
+    %{
+      italic: Utility.flag_bit_is_set(fs_selection, 0),
+      underscore: Utility.flag_bit_is_set(fs_selection, 1),
+      negative: Utility.flag_bit_is_set(fs_selection, 2),
+      outlined: Utility.flag_bit_is_set(fs_selection, 3),
+      strikeout: Utility.flag_bit_is_set(fs_selection, 4),
+      bold: Utility.flag_bit_is_set(fs_selection, 5),
+
+      # OpenType additions
+      regular: Utility.flag_bit_is_set(fs_selection, 6),
+      use_typo_metrics: Utility.flag_bit_is_set(fs_selection, 7),
+      wws: Utility.flag_bit_is_set(fs_selection, 8),
+      oblique: Utility.flag_bit_is_set(fs_selection, 9),
+    }
+  end
+
+  @doc """
+  Interprets the weight class
+  """
+  # Common values for TrueType Fonts
+  def weight_class(1), do: :ultra_light
+  def weight_class(2), do: :extra_light
+  def weight_class(3), do: :light
+  def weight_class(4), do: :semi_light
+  def weight_class(5), do: :medium
+  def weight_class(6), do: :semi_bold
+  def weight_class(7), do: :bold
+  def weight_class(8), do: :extra_bold
+  def weight_class(9), do: :ultra_bold
+
+  # Common values for OpenType Fonts
+  def weight_class(100), do: :thin
+  def weight_class(200), do: :extra_light
+  def weight_class(300), do: :light
+  def weight_class(400), do: :normal
+  def weight_class(500), do: :medium
+  def weight_class(600), do: :semi_bold
+  def weight_class(700), do: :bold
+  def weight_class(800), do: :extra_bold
+  def weight_class(900), do: :black
+  def weight_class(_), do: :custom
 end
