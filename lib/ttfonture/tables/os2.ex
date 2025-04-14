@@ -1,5 +1,4 @@
 defmodule TTFonture.Tables.OS2 do
-  import Bitwise, only: [&&&: 2]
   alias TTFonture.Utility
   alias TTFonture.BinaryReader
   alias TTFonture.FileRegister
@@ -288,7 +287,7 @@ defmodule TTFonture.Tables.OS2 do
       regular: Utility.flag_bit_is_set(fs_selection, 6),
       use_typo_metrics: Utility.flag_bit_is_set(fs_selection, 7),
       wws: Utility.flag_bit_is_set(fs_selection, 8),
-      oblique: Utility.flag_bit_is_set(fs_selection, 9),
+      oblique: Utility.flag_bit_is_set(fs_selection, 9)
     }
   end
 

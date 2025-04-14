@@ -24,7 +24,7 @@ defmodule TTFonture.MixProject do
   defp docs do
     [
       main: "TTFonture",
-      extras: ["README.md"]
+      extras: ["README.md", "LICENSE"]
     ]
   end
 

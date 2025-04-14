@@ -110,21 +110,21 @@ defmodule TTFonture.Tables.Hhea do
          {:ok, metric_data_format} <- BinaryReader.read_int16(file),
          {:ok, num_of_long_hor_metric} <- BinaryReader.read_uint16(file) do
       {:ok,
-        %__MODULE__{
-        version: version,
-        ascent: ascent,
-        descent: descent,
-        line_gap: line_gap,
-        advance_width_max: advance_width_max,
-        min_left_side_bearing: min_left_side_bearing,
-        min_right_side_bearing: min_right_side_bearing,
-        x_max_extent: x_max_extent,
-        caret_slope_rise: caret_slope_rise,
-        caret_slope_run: caret_slope_run,
-        caret_offset: caret_offset,
-        metric_data_format: metric_data_format,
-        num_of_long_hor_metric: num_of_long_hor_metric
-      }}
+       %__MODULE__{
+         version: version,
+         ascent: ascent,
+         descent: descent,
+         line_gap: line_gap,
+         advance_width_max: advance_width_max,
+         min_left_side_bearing: min_left_side_bearing,
+         min_right_side_bearing: min_right_side_bearing,
+         x_max_extent: x_max_extent,
+         caret_slope_rise: caret_slope_rise,
+         caret_slope_run: caret_slope_run,
+         caret_offset: caret_offset,
+         metric_data_format: metric_data_format,
+         num_of_long_hor_metric: num_of_long_hor_metric
+       }}
     end
   end
 end
