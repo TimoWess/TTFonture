@@ -1,4 +1,47 @@
 defmodule TTFonture.Tables.Post do
+  @moduledoc """
+  Handles the PostScript Table (post) in TrueType font files.
+
+  The Post module reads and interprets the 'post' table, which contains PostScript-specific
+  information about the font. This table includes information about italic angle, 
+  underline position and thickness, and memory usage requirements.
+
+  The primary functions of this module are:
+
+  1. Reading the PostScript data from the 'post' table
+  2. Providing structured access to the PostScript-specific font metrics
+
+  ## Table Format
+
+  The 'post' table consists of the following fields:
+  - Format: A fixed-point number indicating the format version of the table
+  - Italic Angle: A fixed-point number specifying the italic angle in degrees
+  - Underline Position: A signed value indicating the suggested position of underlines
+  - Underline Thickness: A signed value indicating the suggested thickness of underlines
+  - IsFixedPitch: A flag indicating whether the font is monospaced
+  - MinMemType42: Minimum memory usage when a TrueType font is downloaded as Type 42
+  - MaxMemType42: Maximum memory usage when a TrueType font is downloaded as Type 42
+  - MinMemType1: Minimum memory usage when a TrueType font is downloaded as Type 1
+  - MaxMemType1: Maximum memory usage when a TrueType font is downloaded as Type 1
+
+  ## Usage Example
+
+  ```elixir
+  # First register a font file
+  TTFonture.FileRegister.register("fonts/opensans.ttf")
+
+  # Get post table information
+  {:ok, post_info} = TTFonture.Tables.Post.read()
+
+  # Access the italic angle
+  italic_angle = post_info.italic_angle
+
+  # Work with a specific file handle
+  {:ok, file} = File.open("fonts/roboto.ttf", [:binary, :read])
+  {:ok, post_info} = TTFonture.Tables.Post.read(file)
+  ```
+  """
+
   alias TTFonture.BinaryReader
   alias TTFonture.FileRegister
 
@@ -23,12 +66,49 @@ defmodule TTFonture.Tables.Post do
             min_mem_type_1: 0,
             max_mem_type_1: 0
 
+  @doc """
+  Reads the 'post' table from the current font file in FileRegister.
+
+  Uses the current file set in FileRegister to read the PostScript information.
+
+  ## Returns
+
+  A struct containing all the PostScript table information.
+
+  ## Raises
+
+  Raises an error if no file is currently registered in FileRegister.
+
+  ## Example
+
+  ```elixir
+  # First register a font file
+  TTFonture.FileRegister.register("fonts/opensans.ttf")
+
+  # Then read the post table
+  {:ok, post_info} = TTFonture.Tables.Post.read()
+  ```
+  """
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
     file_info = FileRegister.current()
     read(file_info)
   end
 
+  @doc """
+  Reads the 'post' table from a specified font file.
+
+  This overload accepts a direct file handle and builds the necessary table directory
+  information before proceeding with reading the PostScript information.
+
+  ## Parameters
+
+  - `file`: The file handle (pid) to read from
+
+  ## Returns
+
+  A struct containing all the PostScript table information.
+  """
   @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
