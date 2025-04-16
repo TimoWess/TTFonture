@@ -23,11 +23,13 @@ defmodule TTFonture.Tables.Post do
             min_mem_type_1: 0,
             max_mem_type_1: 0
 
+  @spec read() :: {:ok, __MODULE__.t()}
   def read do
     file_info = FileRegister.current()
     read(file_info)
   end
 
+  @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
     file_info = %{pid: file, table_directory: table_directory}
