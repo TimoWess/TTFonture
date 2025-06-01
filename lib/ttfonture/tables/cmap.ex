@@ -15,7 +15,7 @@ defmodule TTFonture.Tables.Cmap do
   @spec collect_encoding_subtables(file :: pid(), number_of_subtables :: non_neg_integer()) :: [
           EncodingSubtable.t()
         ]
-  defp collect_encoding_subtables(_, nus) when nus <= 0, do: []
+  defp collect_encoding_subtables(_, number_of_subtables) when number_of_subtables <= 0, do: []
 
   defp collect_encoding_subtables(file, number_of_subtables) do
     Enum.map(1..number_of_subtables, fn _ ->
@@ -40,7 +40,7 @@ defmodule TTFonture.Tables.Cmap do
     read(file_info)
   end
 
-  @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__}
+  @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
     table_directory = TTFonture.get_table_directory(file)
     file_info = %{pid: file, table_directory: table_directory}

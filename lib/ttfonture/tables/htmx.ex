@@ -1,5 +1,5 @@
 defmodule TTFonture.Tables.Htmx do
-  alias Ttfonture.Tables.Htmx.LongHorMetric
+  alias TTFonture.Tables.Htmx.LongHorMetric
   alias TTFonture.BinaryReader
   alias TTFonture.Tables.Hhea
   alias TTFonture.Tables.Maxp

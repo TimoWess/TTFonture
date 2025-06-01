@@ -97,16 +97,16 @@ defmodule TTFonture do
   This function parses the table directory and returns a map where the keys are the table tags
   and the values are keyword lists containing the table metadata.
 
-  > **Note:** In most cases, you should use `TTFonture.FileRegister` which caches the table 
+  > **Note:** In most cases, you should use `TTFonture.FileRegister` which caches the table
   > directory to avoid repeated reads.
 
   ## Parameters
     - `file`: A file handle (pid) for an open TTF file
-    
+
   ## Returns
     - On success: A map of table tags to table metadata (checksum, offset, and length)
     - On error: `{:error, reason}` where reason describes what went wrong
-    
+
   ## Example
 
   ```elixir

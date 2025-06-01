@@ -1,4 +1,4 @@
-defmodule Ttfonture.Tables.Htmx.LongHorMetric do
+defmodule TTFonture.Tables.Htmx.LongHorMetric do
   @type t() :: %__MODULE__{
           advance_width: non_neg_integer(),
           left_side_bearing: integer()
