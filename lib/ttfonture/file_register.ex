@@ -45,7 +45,11 @@ defmodule TTFonture.FileRegister do
             length: non_neg_integer()
           ]
         }
-  @type file_info() :: %{pid: pid(), table_directory: table_directory()}
+  @type file_info() :: %{
+          pid: pid(),
+          table_directory: table_directory(),
+          tables: %{binary() => any()}
+        }
   @type state() :: %{files: %{binary() => file_info()}, current: file_info() | nil}
 
   @doc """
@@ -98,7 +102,7 @@ defmodule TTFonture.FileRegister do
       {:ok, file} = File.open(path, [:binary, :read])
       table_directory = TTFonture.get_table_directory(file)
 
-      file_info = %{pid: file, table_directory: table_directory}
+      file_info = %{pid: file, table_directory: table_directory, table: %{}}
 
       Agent.update(__MODULE__, fn state ->
         %{state | current: file_info, files: Map.put(state.files, path, file_info)}
@@ -196,6 +200,126 @@ defmodule TTFonture.FileRegister do
   @spec current_table_directory() :: table_directory()
   def current_table_directory do
     current().table_directory
+  end
+
+  @doc """
+  Checks if a table is cached for the current font file.
+
+  This function allows you to verify whether a specific table has been previously
+  read and cached, which can help avoid unnecessary file I/O operations.
+
+  ## Parameters
+
+  - `table_name`: The name of the table to check (e.g., "head", "hhea", "glyf")
+
+  ## Returns
+
+  - `true` if the table is cached
+  - `false` if the table is not cached
+
+  ## Raises
+
+  Raises an error if no file is currently registered in FileRegister.
+
+  ## Example
+
+  ```elixir
+  # First register a font file
+  TTFonture.FileRegister.register("fonts/opensans.ttf")
+
+  # Check if head table is cached
+  if TTFonture.FileRegister.is_cached("head") do
+    {:ok, head_table} = TTFonture.FileRegister.get_cached("head")
+  else
+    {:ok, head_table} = TTFonture.Tables.Head.read()
+  end
+  """
+  @spec is_cached(table_name :: binary()) :: boolean()
+  def is_cached(table_name) do
+    current_file = current()
+    Map.has_key?(current_file.tables, table_name)
+  end
+
+  @doc """
+  Returns the the cached table if available.
+
+  ## Returns
+
+  The `table_name` table or `nil`.
+
+  ## Raises
+
+  Raises an error if no file is currently registered.
+
+  ## Example
+
+  ```elixir
+  # Get the table directory of the current font
+  head_table = TTFonture.FileRegister.get_cached("head")
+  ```
+  """
+  @spec get_cached(table_name :: binary()) :: {:error, binary()} | {:ok, any()}
+  def get_cached(table_name) do
+    current_file = current()
+    table = Map.get(current_file.tables, table_name)
+
+    if is_nil(table), do: {:error, "Table not cached!"}, else: {:ok, table}
+  end
+
+  @doc """
+  Caches a table for the current file in the register.
+  This function usually get's called by the table read function automatically.
+
+  ## Returns
+
+  `:ok`
+
+  ## Raises
+
+  Raises an error if no file is currently registered.
+
+  ## Example
+
+  ```elixir
+  # Manually cache table
+  head_table = TTFonture.Tables.Head.read()
+  TTFonture.FileRegister.get_cached("head", head_table) # This isn't needed and will just overwrite the existing table
+  ```
+  """
+  @spec cache_table(table_name :: binary(), table :: any()) :: :ok
+  def cache_table(table_name, table) do
+    Agent.update(__MODULE__, fn state ->
+      current_file = current()
+
+      updated_tables = Map.put(current_file.tables, table_name, table)
+
+      %{state | current: %{current_file | tables: updated_tables}}
+    end)
+  end
+
+  @doc """
+  Clears the table cache for the current file.
+  """
+  @spec clear_cache() :: :ok
+  def clear_cache do
+    Agent.update(__MODULE__, fn state ->
+      current_file = current()
+      %{state | current: %{current_file | tables: %{}}}
+    end)
+  end
+
+  @doc """
+  Returns cache statistics for the current file.
+  """
+  @spec cache_stats() :: %{cached_tables: [binary()], cache_size: non_neg_integer()}
+  def cache_stats do
+    current_file = current()
+    cached_tables = Map.keys(current_file.tables)
+
+    %{
+      cached_tables: cached_tables,
+      cache_size: length(cached_tables)
+    }
   end
 
   @doc """
