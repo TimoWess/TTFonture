@@ -125,7 +125,7 @@ defmodule TTFonture do
   glyf_offset = Keyword.get(glyf_table, :offset)
   ```
   """
-  @spec get_table_directory(pid()) :: table_directory() | {:error, binary()}
+  @spec get_table_directory(pid()) :: {:ok, table_directory()} | {:error, binary()}
   def get_table_directory(file) when is_pid(file) do
     # Skip scaler type
     :file.position(file, {:bof, 4})
@@ -135,15 +135,18 @@ defmodule TTFonture do
     # Skip searchRange, entrySelector and rangeShift
     BinaryReader.skip_bytes(file, 6)
 
-    Enum.reduce(1..num_tables, %{}, fn _, acc ->
-      with {:ok, tag} <- BinaryReader.read_tag(file),
-           {:ok, checksum} <- BinaryReader.read_uint32(file),
-           {:ok, offset} <- BinaryReader.read_uint32(file),
-           {:ok, length} <- BinaryReader.read_uint32(file) do
-        Map.put(acc, tag, checksum: checksum, offset: offset, length: length)
-      else
-        {:error, reason} -> {:error, reason}
-      end
-    end)
+    case Enum.reduce_while(1..num_tables, %{}, fn _, acc ->
+           with {:ok, tag} <- BinaryReader.read_tag(file),
+                {:ok, checksum} <- BinaryReader.read_uint32(file),
+                {:ok, offset} <- BinaryReader.read_uint32(file),
+                {:ok, length} <- BinaryReader.read_uint32(file) do
+             {:cont, Map.put(acc, tag, checksum: checksum, offset: offset, length: length)}
+           else
+             {:error, reason} -> {:halt, {:error, reason}}
+           end
+         end) do
+      {:error, reason} -> {:error, reason}
+      table_directory -> {:ok, table_directory}
+    end
   end
 end

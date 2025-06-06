@@ -5,7 +5,7 @@ defmodule TTFonture.FileRegister do
   The FileRegister module simplifies working with multiple font files by:
 
   1. Managing file handles through a central registry
-  2. Caching table directories to avoid repeated parsing
+  2. Caching table directories and already read tables to avoid repeated parsing
   3. Tracking a "current" file for streamlined API usage
   4. Handling file cleanup automatically
 
@@ -100,9 +100,9 @@ defmodule TTFonture.FileRegister do
 
     if is_nil(file_info) || !Process.alive?(file_info.pid) do
       {:ok, file} = File.open(path, [:binary, :read])
-      table_directory = TTFonture.get_table_directory(file)
+      {:ok, table_directory} = TTFonture.get_table_directory(file)
 
-      file_info = %{pid: file, table_directory: table_directory, table: %{}}
+      file_info = %{pid: file, table_directory: table_directory, tables: %{}}
 
       Agent.update(__MODULE__, fn state ->
         %{state | current: file_info, files: Map.put(state.files, path, file_info)}
@@ -254,7 +254,7 @@ defmodule TTFonture.FileRegister do
   ## Example
 
   ```elixir
-  # Get the table directory of the current font
+  # Get the cached head table of the currently registered font
   head_table = TTFonture.FileRegister.get_cached("head")
   ```
   """
@@ -289,7 +289,7 @@ defmodule TTFonture.FileRegister do
   @spec cache_table(table_name :: binary(), table :: any()) :: :ok
   def cache_table(table_name, table) do
     Agent.update(__MODULE__, fn state ->
-      current_file = current()
+      current_file = state.current
 
       updated_tables = Map.put(current_file.tables, table_name, table)
 
@@ -303,8 +303,7 @@ defmodule TTFonture.FileRegister do
   @spec clear_cache() :: :ok
   def clear_cache do
     Agent.update(__MODULE__, fn state ->
-      current_file = current()
-      %{state | current: %{current_file | tables: %{}}}
+      %{state | current: %{state.current | tables: %{}}}
     end)
   end
 
