@@ -38,8 +38,16 @@ defmodule TTFonture.Tables.Name do
   """
   @spec read() :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def read do
-    file_info = FileRegister.current()
-    read(file_info)
+    case FileRegister.get_cached("name") do
+      {:ok, name_table} ->
+        {:ok, name_table}
+
+      {:error, _} ->
+        file_info = FileRegister.current()
+        {:ok, name_table} = read(file_info)
+        FileRegister.cache_table("name", name_table)
+        {:ok, name_table}
+    end
   end
 
   @doc """
@@ -54,14 +62,13 @@ defmodule TTFonture.Tables.Name do
   * `{:ok, %TTFonture.Tables.Name{}}` - Successfully parsed name table
   * `{:error, reason}` - Error reading the table
   """
-  @spec read(file :: pid()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
+  @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def read(file) when is_pid(file) do
-    table_directory = TTFonture.get_table_directory(file)
-    read(%{pid: file, table_directory: table_directory})
+    {:ok, table_directory} = TTFonture.get_table_directory(file)
+    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
+    read(file_info)
   end
 
-  @spec read(file_info :: FileRegister.file_info()) ::
-          {:ok, __MODULE__.t()} | {:error, String.t()}
   def read(%{pid: file, table_directory: table_directory}) do
     name_offset = Keyword.get(table_directory["name"], :offset)
     :file.position(file, name_offset)

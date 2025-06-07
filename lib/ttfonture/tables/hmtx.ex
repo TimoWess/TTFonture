@@ -1,5 +1,5 @@
-defmodule TTFonture.Tables.Htmx do
-  alias TTFonture.Tables.Htmx.LongHorMetric
+defmodule TTFonture.Tables.Hmtx do
+  alias TTFonture.Tables.Hmtx.LongHorMetric
   alias TTFonture.BinaryReader
   alias TTFonture.Tables.Hhea
   alias TTFonture.Tables.Maxp
@@ -41,19 +41,27 @@ defmodule TTFonture.Tables.Htmx do
 
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    file_info = FileRegister.current()
+    case FileRegister.get_cached("hmtx") do
+      {:ok, hmtx_table} ->
+        {:ok, hmtx_table}
+
+      {:error, _} ->
+        file_info = FileRegister.current()
+        {:ok, hmtx_table} = read(file_info)
+        FileRegister.cache_table("hmtx", hmtx_table)
+        {:ok, hmtx_table}
+    end
+  end
+
+  @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
+  def read(file) when is_pid(file) do
+    {:ok, table_directory} = TTFonture.get_table_directory(file)
+    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
     read(file_info)
   end
 
-  @spec read(file :: pid()) :: {:ok, __MODULE__.t()}
-  def read(file) when is_pid(file) do
-    table_directory = TTFonture.get_table_directory(file)
-    read(%{pid: file, table_directory: table_directory})
-  end
-
-  @spec read(file_info :: FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file_info = %{pid: file, table_directory: table_directory}) do
-    htmx_offset = Keyword.get(table_directory["hmtx"], :offset)
+    hmtx_offset = Keyword.get(table_directory["hmtx"], :offset)
 
     {:ok, maxp_table} = Maxp.read(file_info)
     {:ok, hhea_table} = Hhea.read(file_info)
@@ -62,7 +70,7 @@ defmodule TTFonture.Tables.Htmx do
     num_of_glyphs = maxp_table.num_glyphs
     num_of_lsb = num_of_glyphs - num_of_long_hor_metric
 
-    :file.position(file, htmx_offset)
+    :file.position(file, hmtx_offset)
     h_metrics = collect_h_metrics(file, num_of_long_hor_metric)
     left_side_bearings = collect_left_side_bearings(file, num_of_lsb)
 

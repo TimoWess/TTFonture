@@ -36,14 +36,22 @@ defmodule TTFonture.Tables.Cmap do
 
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    file_info = FileRegister.current()
-    read(file_info)
+    case FileRegister.get_cached("cmap") do
+      {:ok, cmap_table} ->
+        {:ok, cmap_table}
+
+      {:error, _} ->
+        file_info = FileRegister.current()
+        {:ok, cmap_table} = read(file_info)
+        FileRegister.cache_table("cmap", cmap_table)
+        {:ok, cmap_table}
+    end
   end
 
   @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
-    table_directory = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory}
+    {:ok, table_directory} = TTFonture.get_table_directory(file)
+    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
     read(file_info)
   end
 

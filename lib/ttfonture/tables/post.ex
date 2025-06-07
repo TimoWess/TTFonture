@@ -3,7 +3,7 @@ defmodule TTFonture.Tables.Post do
   Handles the PostScript Table (post) in TrueType font files.
 
   The Post module reads and interprets the 'post' table, which contains PostScript-specific
-  information about the font. This table includes information about italic angle, 
+  information about the font. This table includes information about italic angle,
   underline position and thickness, and memory usage requirements.
 
   The primary functions of this module are:
@@ -91,8 +91,16 @@ defmodule TTFonture.Tables.Post do
   """
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    file_info = FileRegister.current()
-    read(file_info)
+    case FileRegister.get_cached("post") do
+      {:ok, post_table} ->
+        {:ok, post_table}
+
+      {:error, _} ->
+        file_info = FileRegister.current()
+        {:ok, post_table} = read(file_info)
+        FileRegister.cache_table("post", post_table)
+        {:ok, post_table}
+    end
   end
 
   @doc """
@@ -111,8 +119,8 @@ defmodule TTFonture.Tables.Post do
   """
   @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
-    table_directory = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory}
+    {:ok, table_directory} = TTFonture.get_table_directory(file)
+    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
     read(file_info)
   end
 

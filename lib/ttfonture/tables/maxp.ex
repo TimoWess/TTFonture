@@ -63,17 +63,25 @@ defmodule TTFonture.Tables.Maxp do
 
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    file_info = FileRegister.current()
+    case FileRegister.get_cached("maxp") do
+      {:ok, maxp_table} ->
+        {:ok, maxp_table}
+
+      {:error, _} ->
+        file_info = FileRegister.current()
+        {:ok, maxp_table} = read(file_info)
+        FileRegister.cache_table("maxp", maxp_table)
+        {:ok, maxp_table}
+    end
+  end
+
+  @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
+  def read(file) when is_pid(file) do
+    {:ok, table_directory} = TTFonture.get_table_directory(file)
+    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
     read(file_info)
   end
 
-  @spec read(file :: pid()) :: {:ok, __MODULE__.t()}
-  def read(file) when is_pid(file) do
-    table_directory = TTFonture.get_table_directory(file)
-    read(%{pid: file, table_directory: table_directory})
-  end
-
-  @spec read(file_info :: FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(%{pid: file, table_directory: table_directory}) do
     maxp_offset = Keyword.get(table_directory["maxp"], :offset)
     :file.position(file, maxp_offset)

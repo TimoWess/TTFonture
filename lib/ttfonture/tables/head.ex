@@ -70,17 +70,25 @@ defmodule TTFonture.Tables.Head do
 
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    file_info = FileRegister.current()
+    case FileRegister.get_cached("head") do
+      {:ok, head_table} ->
+        {:ok, head_table}
+
+      {:error, _} ->
+        file_info = FileRegister.current()
+        {:ok, head_table} = read(file_info)
+        FileRegister.cache_table("head", head_table)
+        {:ok, head_table}
+    end
+  end
+
+  @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
+  def read(file) when is_pid(file) do
+    {:ok, table_directory} = TTFonture.get_table_directory(file)
+    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
     read(file_info)
   end
 
-  @spec read(file :: pid()) :: {:ok, __MODULE__.t()}
-  def read(file) when is_pid(file) do
-    table_directory = TTFonture.get_table_directory(file)
-    read(%{pid: file, table_directory: table_directory})
-  end
-
-  @spec read(file_info :: FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(%{pid: file, table_directory: table_directory}) do
     head_offset = Keyword.get(table_directory["head"], :offset)
     :file.position(file, head_offset)

@@ -69,8 +69,16 @@ defmodule TTFonture.Tables.Loca do
   """
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    file_info = FileRegister.current()
-    read(file_info)
+    case FileRegister.get_cached("loca") do
+      {:ok, loca_table} ->
+        {:ok, loca_table}
+
+      {:error, _} ->
+        file_info = FileRegister.current()
+        {:ok, loca_table} = read(file_info)
+        FileRegister.cache_table("loca", loca_table)
+        {:ok, loca_table}
+    end
   end
 
   @doc """
@@ -87,14 +95,13 @@ defmodule TTFonture.Tables.Loca do
 
   A list of relative offsets from the start of the 'glyf' table to each glyph.
   """
-  @spec read(file :: pid()) :: {:ok, __MODULE__.t()}
+  @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
-    table_directory = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory}
+    {:ok, table_directory} = TTFonture.get_table_directory(file)
+    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
     read(file_info)
   end
 
-  @spec read(FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(%{pid: file, table_directory: table_directory}) do
     # Skip unused: version
     maxp_offset = Keyword.get(table_directory["maxp"], :offset) + 4

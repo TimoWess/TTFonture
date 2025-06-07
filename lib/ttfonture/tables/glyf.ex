@@ -2,11 +2,11 @@ defmodule TTFonture.Tables.Glyf do
   @moduledoc """
   Reads and processes glyph data from TrueType font files.
 
-  The Glyf module provides functionality to read individual glyphs or the entire 
+  The Glyf module provides functionality to read individual glyphs or the entire
   glyph table from a TTF file. It works with both simple and compound glyphs,
   delegating to the appropriate handling module based on the glyph type.
 
-  This module integrates with the FileRegister system to access font files and 
+  This module integrates with the FileRegister system to access font files and
   requires the Loca table to determine glyph locations within the file.
 
   ## Features
@@ -99,8 +99,16 @@ defmodule TTFonture.Tables.Glyf do
   """
   @spec read() :: {:ok, [glyph()]}
   def read do
-    file_info = FileRegister.current()
-    read(file_info)
+    case FileRegister.get_cached("glyf") do
+      {:ok, glyf_table} ->
+        {:ok, glyf_table}
+
+      {:error, _} ->
+        file_info = FileRegister.current()
+        {:ok, glyf_table} = read(file_info)
+        FileRegister.cache_table("glyf", glyf_table)
+        {:ok, glyf_table}
+    end
   end
 
   @doc """
@@ -117,14 +125,13 @@ defmodule TTFonture.Tables.Glyf do
 
   A list of glyph structs (mix of SimpleGlyph and CompoundGlyph)
   """
-  @spec read(file :: pid()) :: {:ok, [glyph()]}
+  @spec read(pid() | FileRegister.file_info()) :: {:ok, [glyph()]}
   def read(file) when is_pid(file) do
-    table_directory = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory}
+    {:ok, table_directory} = TTFonture.get_table_directory(file)
+    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
     read(file_info)
   end
 
-  @spec read(file_info :: FileRegister.file_info()) :: {:ok, [glyph()]}
   def read(file_info) do
     # Last entry only needed to calculate length of the glyph
     {:ok, all_glyph_locations} = Loca.get_absolute_offsets(file_info)
