@@ -44,6 +44,7 @@ defmodule TTFonture.Tables.Post do
 
   alias TTFonture.BinaryReader
   alias TTFonture.FileRegister
+  alias TTFonture.Tables.Common
 
   @type t() :: %__MODULE__{
           format: float(),
@@ -91,16 +92,7 @@ defmodule TTFonture.Tables.Post do
   """
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    case FileRegister.get_cached("post") do
-      {:ok, post_table} ->
-        {:ok, post_table}
-
-      {:error, _} ->
-        file_info = FileRegister.current()
-        {:ok, post_table} = read(file_info)
-        FileRegister.cache_table("post", post_table)
-        {:ok, post_table}
-    end
+    Common.read_cached_table("post", &read_post_table/1)
   end
 
   @doc """
@@ -119,12 +111,13 @@ defmodule TTFonture.Tables.Post do
   """
   @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
-    {:ok, table_directory} = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
-    read(file_info)
+    Common.read_table_from_file(file, &read_post_table/1)
   end
 
-  def read(%{pid: file, table_directory: table_directory}) do
+  def read(%{pid: _file, table_directory: _table_directory} = file_info),
+    do: read_post_table(file_info)
+
+  def read_post_table(%{pid: file, table_directory: table_directory}) do
     post_offset = Keyword.get(table_directory["post"], :offset)
     :file.position(file, post_offset)
 

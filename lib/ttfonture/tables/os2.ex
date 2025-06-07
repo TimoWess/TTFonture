@@ -2,6 +2,7 @@ defmodule TTFonture.Tables.OS2 do
   alias TTFonture.Utility
   alias TTFonture.BinaryReader
   alias TTFonture.FileRegister
+  alias TTFonture.Tables.Common
 
   @type t() :: %__MODULE__{
           # Version 0 fields
@@ -107,26 +108,18 @@ defmodule TTFonture.Tables.OS2 do
 
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    case FileRegister.get_cached("OS/2") do
-      {:ok, os2_table} ->
-        {:ok, os2_table}
-
-      {:error, _} ->
-        file_info = FileRegister.current()
-        {:ok, os2_table} = read(file_info)
-        FileRegister.cache_table("OS/2", os2_table)
-        {:ok, os2_table}
-    end
+    Common.read_cached_table("OS/2", &read_os2_table/1)
   end
 
   @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
-    {:ok, table_directory} = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
-    read(file_info)
+    Common.read_table_from_file(file, &read_os2_table/1)
   end
 
-  def read(%{pid: file, table_directory: table_directory}) do
+  def read(%{pid: _file, table_directory: _table_directory} = file_info),
+    do: read_os2_table(file_info)
+
+  def read_os2_table(%{pid: file, table_directory: table_directory}) do
     os2_offset = Keyword.get(table_directory["OS/2"], :offset)
     :file.position(file, os2_offset)
 

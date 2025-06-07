@@ -7,6 +7,7 @@ defmodule TTFonture.Tables.Head do
 
   alias TTFonture.FileRegister
   alias TTFonture.BinaryReader
+  alias TTFonture.Tables.Common
 
   @typedoc """
   Type representing the 'head' table structure.
@@ -70,26 +71,18 @@ defmodule TTFonture.Tables.Head do
 
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    case FileRegister.get_cached("head") do
-      {:ok, head_table} ->
-        {:ok, head_table}
-
-      {:error, _} ->
-        file_info = FileRegister.current()
-        {:ok, head_table} = read(file_info)
-        FileRegister.cache_table("head", head_table)
-        {:ok, head_table}
-    end
+    Common.read_cached_table("head", &read_head_table/1)
   end
 
   @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
-    {:ok, table_directory} = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
-    read(file_info)
+    Common.read_table_from_file(file, &read_head_table/1)
   end
 
-  def read(%{pid: file, table_directory: table_directory}) do
+  def read(%{pid: _file, table_directory: _table_directory} = file_info),
+    do: read_head_table(file_info)
+
+  def read_head_table(%{pid: file, table_directory: table_directory}) do
     head_offset = Keyword.get(table_directory["head"], :offset)
     :file.position(file, head_offset)
 

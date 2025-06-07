@@ -3,6 +3,7 @@ defmodule TTFonture.Tables.Cmap do
   alias TTFonture.Tables.Cmap.EncodingSubtable
   alias TTFonture.BinaryReader
   alias TTFonture.FileRegister
+  alias TTFonture.Tables.Common
 
   @type t() :: %__MODULE__{
           version: 0,
@@ -36,26 +37,19 @@ defmodule TTFonture.Tables.Cmap do
 
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    case FileRegister.get_cached("cmap") do
-      {:ok, cmap_table} ->
-        {:ok, cmap_table}
-
-      {:error, _} ->
-        file_info = FileRegister.current()
-        {:ok, cmap_table} = read(file_info)
-        FileRegister.cache_table("cmap", cmap_table)
-        {:ok, cmap_table}
-    end
+    Common.read_cached_table("cmap", &read_cmap_table/1)
   end
 
   @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
-    {:ok, table_directory} = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
-    read(file_info)
+    Common.read_table_from_file(file, &read_cmap_table/1)
   end
 
-  def read(%{pid: file, table_directory: table_directory}) do
+  def read(%{pid: _file, table_directory: _table_directory} = file_info),
+    do: read_cmap_table(file_info)
+
+  @spec read_cmap_table(file_info :: FileRegister.file_info()) :: {:ok, __MODULE__.t()}
+  def read_cmap_table(%{pid: file, table_directory: table_directory}) do
     cmap_offset = Keyword.get(table_directory["cmap"], :offset)
     :file.position(file, cmap_offset)
 

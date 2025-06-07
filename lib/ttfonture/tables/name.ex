@@ -10,6 +10,7 @@ defmodule TTFonture.Tables.Name do
   alias TTFonture.BinaryReader
   alias TTFonture.FileRegister
   alias TTFonture.Tables.Name.NameRecord
+  alias TTFonture.Tables.Common
 
   @typedoc """
   Type representing the 'name' table structure.
@@ -38,16 +39,7 @@ defmodule TTFonture.Tables.Name do
   """
   @spec read() :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def read do
-    case FileRegister.get_cached("name") do
-      {:ok, name_table} ->
-        {:ok, name_table}
-
-      {:error, _} ->
-        file_info = FileRegister.current()
-        {:ok, name_table} = read(file_info)
-        FileRegister.cache_table("name", name_table)
-        {:ok, name_table}
-    end
+    Common.read_cached_table("name", &read_name_table/1)
   end
 
   @doc """
@@ -64,12 +56,15 @@ defmodule TTFonture.Tables.Name do
   """
   @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def read(file) when is_pid(file) do
-    {:ok, table_directory} = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
-    read(file_info)
+    Common.read_table_from_file(file, &read_name_table/1)
   end
 
-  def read(%{pid: file, table_directory: table_directory}) do
+  def read(%{pid: _file, table_directory: _table_directory} = file_info),
+    do: read_name_table(file_info)
+
+  @spec read_name_table(file_info :: FileRegister.file_info()) ::
+          {:ok, __MODULE__.t()} | {:error, String.t()}
+  def read_name_table(%{pid: file, table_directory: table_directory}) do
     name_offset = Keyword.get(table_directory["name"], :offset)
     :file.position(file, name_offset)
 

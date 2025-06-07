@@ -4,6 +4,7 @@ defmodule TTFonture.Tables.Hmtx do
   alias TTFonture.Tables.Hhea
   alias TTFonture.Tables.Maxp
   alias TTFonture.FileRegister
+  alias TTFonture.Tables.Common
 
   @type t() :: %__MODULE__{
           h_metrics: [LongHorMetric.t()],
@@ -41,26 +42,18 @@ defmodule TTFonture.Tables.Hmtx do
 
   @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    case FileRegister.get_cached("hmtx") do
-      {:ok, hmtx_table} ->
-        {:ok, hmtx_table}
-
-      {:error, _} ->
-        file_info = FileRegister.current()
-        {:ok, hmtx_table} = read(file_info)
-        FileRegister.cache_table("hmtx", hmtx_table)
-        {:ok, hmtx_table}
-    end
+    Common.read_cached_table("hmtx", &read_hmtx_table/1)
   end
 
   @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
-    {:ok, table_directory} = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
-    read(file_info)
+    Common.read_table_from_file(file, &read_hmtx_table/1)
   end
 
-  def read(file_info = %{pid: file, table_directory: table_directory}) do
+  def read(%{pid: _file, table_directory: _table_directory} = file_info),
+    do: read_hmtx_table(file_info)
+
+  def read_hmtx_table(file_info = %{pid: file, table_directory: table_directory}) do
     hmtx_offset = Keyword.get(table_directory["hmtx"], :offset)
 
     {:ok, maxp_table} = Maxp.read(file_info)

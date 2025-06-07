@@ -39,8 +39,10 @@ defmodule TTFonture.Tables.Glyf do
   alias TTFonture.BinaryReader
   alias TTFonture.Glyphs.CompoundGlyph
   alias TTFonture.Glyphs.SimpleGlyph
+  alias TTFonture.Tables.Common
 
   @type glyph() :: SimpleGlyph.t() | CompoundGlyph.t()
+  @type t() :: [glyph()]
 
   @doc """
   Reads a single glyph from a file at the specified offset.
@@ -97,18 +99,9 @@ defmodule TTFonture.Tables.Glyf do
   glyphs = TTFonture.Tables.Glyf.read()
   ```
   """
-  @spec read() :: {:ok, [glyph()]}
+  @spec read() :: {:ok, __MODULE__.t()}
   def read do
-    case FileRegister.get_cached("glyf") do
-      {:ok, glyf_table} ->
-        {:ok, glyf_table}
-
-      {:error, _} ->
-        file_info = FileRegister.current()
-        {:ok, glyf_table} = read(file_info)
-        FileRegister.cache_table("glyf", glyf_table)
-        {:ok, glyf_table}
-    end
+    Common.read_cached_table("glyf", &read_glyf_table/1)
   end
 
   @doc """
@@ -125,14 +118,16 @@ defmodule TTFonture.Tables.Glyf do
 
   A list of glyph structs (mix of SimpleGlyph and CompoundGlyph)
   """
-  @spec read(pid() | FileRegister.file_info()) :: {:ok, [glyph()]}
+  @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()}
   def read(file) when is_pid(file) do
-    {:ok, table_directory} = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
-    read(file_info)
+    Common.read_table_from_file(file, &read_glyf_table/1)
   end
 
-  def read(file_info) do
+  def read(%{pid: _file, table_directory: _table_directory} = file_info),
+    do: read_glyf_table(file_info)
+
+  @spec read_glyf_table(file_info :: FileRegister.file_info()) :: {:ok, __MODULE__.t()}
+  def read_glyf_table(file_info) do
     # Last entry only needed to calculate length of the glyph
     {:ok, all_glyph_locations} = Loca.get_absolute_offsets(file_info)
     all_glyph_locations = Enum.slice(all_glyph_locations, 0..-2//1)

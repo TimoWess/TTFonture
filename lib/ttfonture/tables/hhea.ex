@@ -7,6 +7,7 @@ defmodule TTFonture.Tables.Hhea do
   that apply to the font as a whole.
   """
 
+  alias TTFonture.Tables.Common
   alias TTFonture.BinaryReader
   alias TTFonture.FileRegister
 
@@ -67,16 +68,7 @@ defmodule TTFonture.Tables.Hhea do
   """
   @spec read() :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def read do
-    case FileRegister.get_cached("hhea") do
-      {:ok, hhea_table} ->
-        {:ok, hhea_table}
-
-      {:error, _} ->
-        file_info = FileRegister.current()
-        {:ok, hhea_table} = read(file_info)
-        FileRegister.cache_table("hhea", hhea_table)
-        {:ok, hhea_table}
-    end
+    Common.read_cached_table("hhea", &read_hhea_table/1)
   end
 
   @doc """
@@ -93,12 +85,15 @@ defmodule TTFonture.Tables.Hhea do
   """
   @spec read(pid() | FileRegister.file_info()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def read(file) when is_pid(file) do
-    {:ok, table_directory} = TTFonture.get_table_directory(file)
-    file_info = %{pid: file, table_directory: table_directory, tables: %{}}
-    read(file_info)
+    Common.read_table_from_file(file, &read_hhea_table/1)
   end
 
-  def read(%{pid: file, table_directory: table_directory}) do
+  def read(%{pid: _file, table_directory: _table_directory} = file_info),
+    do: read_hhea_table(file_info)
+
+  @spec read_hhea_table(file_info :: FileRegister.file_info()) ::
+          {:ok, __MODULE__.t()} | {:error, String.t()}
+  def read_hhea_table(%{pid: file, table_directory: table_directory}) do
     head_offset = Keyword.get(table_directory["hhea"], :offset)
     :file.position(file, head_offset)
 
