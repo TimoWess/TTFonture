@@ -15,6 +15,7 @@ defmodule TTFonture.Tables.Name.NameRecord do
   * `name_id` - Type of name data (0-25+, e.g., 1 = Font Family, 2 = Font Subfamily)
   * `length` - Length of the string data in bytes
   * `offset` - Offset to the string data from the start of the string storage area
+  * `name` - The character string of the name
   """
   @type t() :: %__MODULE__{
           platform_id: non_neg_integer(),
