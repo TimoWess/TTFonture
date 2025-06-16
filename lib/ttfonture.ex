@@ -49,7 +49,7 @@ defmodule TTFonture do
   # Open a TTF file
   {:ok, file} = :file.open("path/to/font.ttf", [:read, :binary])
 
-  # Get the table directory
+  # Get the table directoryfile_pid
   table_directory = TTFonture.get_table_directory(file)
 
   # Access specific tables using the directory
@@ -151,20 +151,18 @@ defmodule TTFonture do
     end
   end
 
-  defp calc_table_checksum(table_name) do
-    current = FileRegister.current()
-    table_data = Map.get(current.table_directory, table_name)
+  defp calc_table_checksum(table_name, table_directory, file_pid) do
+    table_data = Map.get(table_directory, table_name)
 
     if is_nil(table_data) do
-      raise "No table named \"#{table_name}\" found"
+      {:error, "No table named \"#{table_name}\" found"}
     else
       offset = Keyword.get(table_data, :offset)
       table_length = Keyword.get(table_data, :length)
       number_of_longs = div(table_length + 3, 4)
-      :file.position(current.pid, offset)
+      :file.position(file_pid, offset)
 
-      # Read only the actual table length, then pad manually
-      {:ok, actual_data} = :file.read(current.pid, table_length)
+      {:ok, actual_data} = :file.read(file_pid, table_length)
 
       # Special handling for head table
       processed_data =
@@ -177,43 +175,39 @@ defmodule TTFonture do
         end
 
       # Pad to 4-byte boundary with zeros
-      padding_size = number_of_longs * 4 - byte_size(processed_data)
+      padding_size = number_of_longs * 4 - table_length
       padded_data = processed_data <> <<0::size(padding_size * 8)>>
 
-      for <<value::big-unsigned-32 <- padded_data>>, reduce: 0 do
-        # Simulate 32-bit integer overflow
-        sum -> (sum + value) |> Bitwise.band(0xFFFFFFFF)
-      end
+      calculated_checksum =
+        for <<value::big-unsigned-32 <- padded_data>>, reduce: 0 do
+          # Simulate 32-bit integer overflow
+          sum -> (sum + value) |> Bitwise.band(0xFFFFFFFF)
+        end
+
+      {:ok, calculated_checksum}
     end
   end
 
   @spec verify_all_tables() :: {:ok, binary()} | {:error, [binary()]}
   def verify_all_tables() do
-    failed_tables =
-      FileRegister.current_table_directory()
-      |> Enum.flat_map(fn {table_name, table_info} ->
-        calculated_checksum = calc_table_checksum(table_name)
-        res = Keyword.get(table_info, :checksum) == calculated_checksum
-        if res, do: [table_name], else: [table_name]
-      end)
-
-    if length(failed_tables) == 0 do
-      {:ok, "All checksums are correct!"}
-    else
-      {:error, failed_tables}
-    end
+    table_directory = FileRegister.current_table_directory()
+    file = FileRegister.current_pid()
+    verify_all_tables_(file, table_directory)
   end
 
-  @spec verify_all_tables(file_pid :: pid()) :: {:ok, binary()} | {:error, [binary()]}
-  def verify_all_tables(file_pid) do
+  @spec verify_all_tables(pid() | table_directory()) :: {:ok, binary()} | {:error, [binary()]}
+  def verify_all_tables(file_pid) when is_pid(file_pid) do
     {:ok, table_directory} = get_table_directory(file_pid)
+    verify_all_tables_(file_pid, table_directory)
+  end
 
+  defp verify_all_tables_(file, table_directory) do
     failed_tables =
       table_directory
       |> Enum.flat_map(fn {table_name, table_info} ->
-        calculated_checksum = calc_table_checksum(table_name)
+        {:ok, calculated_checksum} = calc_table_checksum(table_name, table_directory, file)
         res = Keyword.get(table_info, :checksum) == calculated_checksum
-        if res, do: [table_name], else: [table_name]
+        if res, do: [], else: [table_name]
       end)
 
     if length(failed_tables) == 0 do
