@@ -125,4 +125,39 @@ defmodule TTFonture.Tables.Head do
        }}
     end
   end
+
+  @spec calc_checksum_adjustment() :: non_neg_integer()
+  def calc_checksum_adjustment() do
+    file = FileRegister.current_pid()
+    table_directory = FileRegister.current_table_directory()
+    head_offset = Keyword.get(table_directory["head"], :offset)
+    :file.position(file, 0)
+
+    entire_file = IO.binread(file, :eof)
+
+    checksum_adj_pos = head_offset + 8
+
+    # Zero out the checksumAdjustment field (4 bytes at head_offset + 8)
+    <<before::binary-size(checksum_adj_pos), _ca::big-unsigned-32, rest::binary>> =
+      entire_file
+
+    data = before <> <<0, 0, 0, 0>> <> rest
+
+    size = byte_size(data)
+
+    padded_data =
+      if rem(size, 4) == 0, do: data, else: data <> <<0::size((4 - rem(size, 4)) * 8)>>
+
+    calc_sum =
+      for <<value::big-unsigned-32 <- padded_data>>, reduce: 0 do
+        sum -> sum + value
+      end
+      # Simulate 32-bit integer overflow
+      |> Bitwise.band(0xFFFFFFFF)
+
+    res = 0xB1B0AFBA - calc_sum
+
+    # Simulate 32-bit integer underflow
+    if res < 0, do: Bitwise.band(rem(res, 2 ** 32), 0xFFFFFFFF), else: res
+  end
 end
