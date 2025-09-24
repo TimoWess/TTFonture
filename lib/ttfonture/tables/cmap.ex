@@ -233,7 +233,6 @@ defmodule TTFonture.Tables.Cmap do
 
   defp in_bounds?(i, list), do: i >= 0 and i < length(list)
 
-  # Binary search to find the segment containing the character
   defp find_segment_index(end_codes, char_code) do
     case Enum.find_index(end_codes, fn end_code -> char_code <= end_code end) do
       nil -> {:error, nil}
