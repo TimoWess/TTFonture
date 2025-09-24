@@ -67,7 +67,7 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
     {:ok, id_deltas} = collect_n_uint16(file, seg_count)
     {:ok, id_range_offsets} = collect_n_uint16(file, seg_count)
 
-    remaining_bytes = length - (14 + seg_count * 8 + 2)
+    remaining_bytes = length - (16 + seg_count * 8)
     # 2 bytes per glyph ID
     glyph_id_count = div(remaining_bytes, 2)
     {:ok, glyph_id_array} = collect_n_uint16(file, glyph_id_count)

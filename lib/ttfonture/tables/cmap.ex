@@ -180,50 +180,64 @@ defmodule TTFonture.Tables.Cmap do
       glyph_id_array: glyph_id_array
     } = data
 
-    # Find the segment that contains this character
-    segment_index = find_segment_index(end_codes, char_code)
-
-    if segment_index != nil do
-      start_code = Enum.at(start_codes, segment_index)
-
-      if char_code >= start_code do
-        id_delta = Enum.at(id_deltas, segment_index)
-        id_range_offset = Enum.at(id_range_offsets, segment_index)
-
-        glyph_id =
-          if id_range_offset == 0 do
-            # Simple case: add delta directly
-            rem(char_code + id_delta, 65536)
-          else
-            # Complex case: look up in glyph_id_array
-            array_index =
-              div(id_range_offset, 2) + (char_code - start_code) -
-                (length(id_range_offsets) - segment_index)
-
-            if array_index >= 0 && array_index < length(glyph_id_array) do
-              base_glyph_id = Enum.at(glyph_id_array, array_index)
-
-              if base_glyph_id != 0 do
-                rem(base_glyph_id + id_delta, 65536)
-              else
-                0
-              end
-            else
-              0
-            end
-          end
-
-        {:ok, glyph_id}
-      else
-        {:error, :not_found}
-      end
+    with {:ok, seg_idx} <- find_segment_index(end_codes, char_code),
+         {:ok, start_code} <- Enum.fetch(start_codes, seg_idx),
+         true <- char_code >= start_code || {:error, :not_found},
+         {:ok, id_delta} <- Enum.fetch(id_deltas, seg_idx),
+         {:ok, range_offset} <- Enum.fetch(id_range_offsets, seg_idx),
+         {:ok, gid} <-
+           glyph_id_for(
+             char_code,
+             start_code,
+             id_delta,
+             range_offset,
+             seg_idx,
+             id_range_offsets,
+             glyph_id_array
+           ) do
+      {:ok, gid}
     else
-      {:error, :not_found}
+      {:error, :not_found} -> {:error, :not_found}
+      _ -> {:error, :not_found}
     end
   end
 
+  # Direct delta path (offset 0)
+  defp glyph_id_for(char_code, _start, id_delta, 0, _seg_idx, _offsets, _array) do
+    {:ok, rem(char_code + id_delta, 65_536)}
+  end
+
+  # Lookup path (offset != 0)
+  defp glyph_id_for(
+         char_code,
+         start_code,
+         id_delta,
+         range_offset,
+         seg_idx,
+         id_range_offsets,
+         glyph_id_array
+       ) do
+    array_index =
+      div(range_offset, 2) + (char_code - start_code) -
+        (length(id_range_offsets) - seg_idx)
+
+    with true <- in_bounds?(array_index, glyph_id_array) || :ok_zero,
+         {:ok, base} <- Enum.fetch(glyph_id_array, array_index) do
+      if base == 0, do: {:ok, 0}, else: {:ok, rem(base + id_delta, 65_536)}
+    else
+      # If out of bounds, spec says treat as 0
+      :ok_zero -> {:ok, 0}
+      _ -> {:ok, 0}
+    end
+  end
+
+  defp in_bounds?(i, list), do: i >= 0 and i < length(list)
+
   # Binary search to find the segment containing the character
   defp find_segment_index(end_codes, char_code) do
-    Enum.find_index(end_codes, fn end_code -> char_code <= end_code end)
+    case Enum.find_index(end_codes, fn end_code -> char_code <= end_code end) do
+      nil -> {:error, nil}
+      index -> {:ok, index}
+    end
   end
 end
