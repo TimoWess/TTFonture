@@ -5,15 +5,20 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
   @type t() :: %__MODULE__{format: non_neg_integer(), data: map()}
   defstruct format: 0, data: %{}
 
-  @spec collect_n_uint16(file :: pid(), n :: non_neg_integer()) :: {:ok, [non_neg_integer()]}
-  defp collect_n_uint16(_file, n) when n <= 0, do: []
+  @spec collect_n_uint16(file :: pid(), n :: non_neg_integer(), convert_to_tuple :: boolean()) ::
+          {:ok, [non_neg_integer()]}
+  defp collect_n_uint16(file, n, convert_to_tuple \\ false)
+  defp collect_n_uint16(_file, n, _) when n <= 0, do: []
 
-  defp collect_n_uint16(file, n) do
-    {:ok,
-     Enum.map(1..n, fn _ ->
-       {:ok, val} = BinaryReader.read_uint16(file)
-       val
-     end)}
+  defp collect_n_uint16(file, n, convert_to_tuple) do
+    values =
+      Enum.map(1..n, fn _ ->
+        {:ok, val} = BinaryReader.read_uint16(file)
+        val
+      end)
+
+    values = if convert_to_tuple, do: List.to_tuple(values), else: values
+    {:ok, values}
   end
 
   @spec collect_groups(file :: pid(), n_groups :: non_neg_integer()) ::
@@ -63,9 +68,10 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
 
     {:ok, end_codes} = collect_n_uint16(file, seg_count)
     {:ok, reserved_pad} = BinaryReader.read_uint16(file)
-    {:ok, start_codes} = collect_n_uint16(file, seg_count)
-    {:ok, id_deltas} = collect_n_uint16(file, seg_count)
-    {:ok, id_range_offsets} = collect_n_uint16(file, seg_count)
+    # Return start_codes, id_deltas and id_range_offsets as tuples for index based lookups
+    {:ok, start_codes} = collect_n_uint16(file, seg_count, true)
+    {:ok, id_deltas} = collect_n_uint16(file, seg_count, true)
+    {:ok, id_range_offsets} = collect_n_uint16(file, seg_count, true)
 
     remaining_bytes = length - (16 + seg_count * 8)
     # 2 bytes per glyph ID
