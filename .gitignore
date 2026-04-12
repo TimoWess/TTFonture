@@ -23,3 +23,5 @@ font_extractor-*.tar
 /tmp/
 
 /data/
+
+/.direnv/
