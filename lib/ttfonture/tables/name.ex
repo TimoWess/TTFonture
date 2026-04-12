@@ -136,7 +136,7 @@ defmodule TTFonture.Tables.Name do
   end
 
   @doc false
-  defp apply_name_to_record(name, record) do
+  defp apply_name_to_record(name, %NameRecord{} = record) do
     %NameRecord{record | name: name}
   end
 

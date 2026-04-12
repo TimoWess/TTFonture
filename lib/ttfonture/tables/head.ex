@@ -145,8 +145,10 @@ defmodule TTFonture.Tables.Head do
 
     size = byte_size(data)
 
+    remainder = rem(size, 4)
+
     padded_data =
-      if rem(size, 4) == 0, do: data, else: data <> <<0::size((4 - rem(size, 4)) * 8)>>
+      if remainder == 0, do: data, else: data <> <<0::size((4 - remainder) * 8)>>
 
     calc_sum =
       for <<value::big-unsigned-32 <- padded_data>>, reduce: 0 do

@@ -210,7 +210,7 @@ defmodule TTFonture do
         if res, do: [], else: [table_name]
       end)
 
-    if length(failed_tables) == 0 do
+    if Enum.empty?(failed_tables) do
       {:ok, "All checksums are correct!"}
     else
       {:error, failed_tables}
