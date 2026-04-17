@@ -283,7 +283,7 @@ defmodule TTFonture.FileRegister do
   ```elixir
   # Manually cache table
   {:ok, head_table} = TTFonture.Tables.Head.read()
-  TTFonture.FileRegister.get_cached("head", head_table) # This isn't needed and will just overwrite the existing table
+  TTFonture.FileRegister.cache_table("head", head_table) # This isn't needed and will just overwrite the existing table
   ```
   """
   @spec cache_table(table_name :: binary(), table :: any()) :: :ok
