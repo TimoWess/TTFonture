@@ -73,7 +73,7 @@ defmodule TTFonture.Tables.Cmap do
 
   This function searches through the mapping subtables to find the glyph ID
   that corresponds to the given character code. It prioritizes Unicode subtables
-  and handles both format 4 and format 12 mappings.
+  and handles both format 4, 6 and format 12 mappings.
 
   ## Parameters
   - character or char_code: A string of length 1 or Unicode character code
@@ -115,16 +115,22 @@ defmodule TTFonture.Tables.Cmap do
     # Priority: Format 12 (Unicode full repertoire) > Format 4 (Unicode BMP)
 
     case find_in_format_12(mapping_subtables, char_code) do
-      {:ok, glyph_id} -> {:ok, glyph_id}
-      {:error, :not_found} -> find_in_format_4(mapping_subtables, char_code)
+      {:ok, glyph_id} ->
+        {:ok, glyph_id}
+
+      {:error, :not_found} ->
+        case find_in_format_4(mapping_subtables, char_code) do
+          {:ok, glyph_id} -> {:ok, glyph_id}
+          {:error, :not_found} -> find_in_format_6(mapping_subtables, char_code)
+        end
     end
   end
 
   @doc """
   Same as char_to_glyph_id/2 but returns the glyph ID directly or nil if not found.
   """
-  @spec char_to_glyph_id!(t(), non_neg_integer()) :: non_neg_integer() | nil
-  def char_to_glyph_id!(cmap, char_code) do
+  @spec char_to_glyph_id_or_nil(t(), non_neg_integer()) :: non_neg_integer() | nil
+  def char_to_glyph_id_or_nil(cmap, char_code) do
     case char_to_glyph_id(cmap, char_code) do
       {:ok, glyph_id} -> glyph_id
       {:error, :not_found} -> nil
@@ -137,6 +143,17 @@ defmodule TTFonture.Tables.Cmap do
 
     Enum.reduce_while(format_12_subtables, {:error, :not_found}, fn subtable, acc ->
       case lookup_in_format_12_groups(subtable.data.groups, char_code) do
+        {:ok, glyph_id} -> {:halt, {:ok, glyph_id}}
+        {:error, :not_found} -> {:cont, acc}
+      end
+    end)
+  end
+
+  defp find_in_format_6(mapping_subtables, char_code) do
+    format_6_subtables = Enum.filter(mapping_subtables, &(&1.format == 6))
+
+    Enum.reduce_while(format_6_subtables, {:error, :not_found}, fn subtable, acc ->
+      case lookup_in_format_6_segments(subtable.data, char_code) do
         {:ok, glyph_id} -> {:halt, {:ok, glyph_id}}
         {:error, :not_found} -> {:cont, acc}
       end
@@ -170,6 +187,23 @@ defmodule TTFonture.Tables.Cmap do
     end)
   end
 
+  defp lookup_in_format_6_segments(data, char_code) do
+    %{
+      first_code: first_code,
+      entry_count: entry_count,
+      glyph_id_array: glyph_id_array
+    } = data
+
+    if char_code >= first_code && char_code < first_code + entry_count do
+      case Enum.fetch(glyph_id_array, char_code - first_code) do
+        {:ok, glyph_id} -> {:ok, glyph_id}
+        :error -> {:error, :not_found}
+      end
+    else
+      {:error, :not_found}
+    end
+  end
+
   # Look up character in format 4 segments (more complex algorithm)
   defp lookup_in_format_4_segments(data, char_code) do
     %{
@@ -197,7 +231,6 @@ defmodule TTFonture.Tables.Cmap do
            ) do
       {:ok, gid}
     else
-      {:error, :not_found} -> {:error, :not_found}
       _ -> {:error, :not_found}
     end
   end
@@ -235,7 +268,7 @@ defmodule TTFonture.Tables.Cmap do
 
   defp find_segment_index(end_codes, char_code) do
     case Enum.find_index(end_codes, fn end_code -> char_code <= end_code end) do
-      nil -> {:error, nil}
+      nil -> {:error, :not_found}
       index -> {:ok, index}
     end
   end
