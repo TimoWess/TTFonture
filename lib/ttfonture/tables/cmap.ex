@@ -112,21 +112,21 @@ defmodule TTFonture.Tables.Cmap do
   def char_to_glyph_id(%__MODULE__{mapping_subtables: mapping_subtables}, char_code)
       when is_number(char_code) do
     # Try to find the character in the best available subtable
-    # Priority: Format 12 (Unicode full repertoire) > Format 4 (Unicode BMP)
+    # Priority: Format 12 (Unicode full repertoire) > Format 4 (Unicode BMP) > Format 6 > Format 0
 
-    case find_in_subtables(mapping_subtables, 12, char_code, &lookup_in_format_12_groups/2) do
-      {:ok, glyph_id} ->
-        {:ok, glyph_id}
+    formats = [
+      {12, &lookup_in_format_12_groups/2},
+      {4, &lookup_in_format_4_segments/2},
+      {6, &lookup_in_format_6_segments/2},
+      {0, &lookup_in_format_0_segments/2}
+    ]
 
-      {:error, :not_found} ->
-        case find_in_subtables(mapping_subtables, 4, char_code, &lookup_in_format_4_segments/2) do
-          {:ok, glyph_id} ->
-            {:ok, glyph_id}
-
-          {:error, :not_found} ->
-            find_in_subtables(mapping_subtables, 6, char_code, &lookup_in_format_6_segments/2)
-        end
-    end
+    Enum.reduce_while(formats, {:error, :not_found}, fn {format, lookup_fn}, acc ->
+      case find_in_subtables(mapping_subtables, format, char_code, lookup_fn) do
+        {:ok, _} = result -> {:halt, result}
+        {:error, :not_found} -> {:cont, acc}
+      end
+    end)
   end
 
   @doc """
@@ -211,6 +211,20 @@ defmodule TTFonture.Tables.Cmap do
       {:ok, gid}
     else
       _ -> {:error, :not_found}
+    end
+  end
+
+  defp lookup_in_format_0_segments(_data, char_code) when char_code > 255,
+    do: {:error, :not_found}
+
+  defp lookup_in_format_0_segments(data, char_code) do
+    %{
+      glyph_id_array: glyph_id_array
+    } = data
+
+    case Enum.fetch(glyph_id_array, char_code) do
+      {:ok, glyph_id} -> {:ok, glyph_id}
+      :error -> {:error, :not_found}
     end
   end
 
