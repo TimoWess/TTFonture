@@ -118,6 +118,7 @@ defmodule TTFonture.Tables.Cmap do
       {12, &lookup_in_format_12_groups/2},
       {4, &lookup_in_format_4_segments/2},
       {6, &lookup_in_format_6_segments/2},
+      {10, &lookup_in_format_10_segments/2},
       {0, &lookup_in_format_0_segments/2}
     ]
 
@@ -161,6 +162,23 @@ defmodule TTFonture.Tables.Cmap do
         {:cont, acc}
       end
     end)
+  end
+
+  defp lookup_in_format_10_segments(data, char_code) do
+    %{
+      start_char_code: start_char_code,
+      num_chars: num_chars,
+      glyph_id_array: glyph_id_array
+    } = data
+
+    if char_code >= start_char_code && char_code < start_char_code + num_chars do
+      case Enum.fetch(glyph_id_array, char_code - start_char_code) do
+        {:ok, glyph_id} -> {:ok, glyph_id}
+        :error -> {:error, :not_found}
+      end
+    else
+      {:error, :not_found}
+    end
   end
 
   defp lookup_in_format_6_segments(data, char_code) do

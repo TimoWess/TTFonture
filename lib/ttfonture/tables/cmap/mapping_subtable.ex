@@ -121,6 +121,26 @@ defmodule TTFonture.Tables.Cmap.MappingSubtable do
     {:ok, %__MODULE__{format: 6, data: data}}
   end
 
+  defp read_by_format(file, 10) do
+    {:ok, reserved} = BinaryReader.read_uint16(file)
+    {:ok, length} = BinaryReader.read_uint32(file)
+    {:ok, language} = BinaryReader.read_uint32(file)
+    {:ok, start_char_code} = BinaryReader.read_uint32(file)
+    {:ok, num_chars} = BinaryReader.read_uint32(file)
+    {:ok, glyph_id_array} = collect_n_units(file, num_chars, &BinaryReader.read_uint16/1)
+
+    data = %{
+      reserved: reserved,
+      length: length,
+      language: language,
+      start_char_code: start_char_code,
+      num_chars: num_chars,
+      glyph_id_array: glyph_id_array
+    }
+
+    {:ok, %__MODULE__{format: 10, data: data}}
+  end
+
   defp read_by_format(file, 12) do
     {:ok, reserved} = BinaryReader.read_uint16(file)
     {:ok, length} = BinaryReader.read_uint32(file)
