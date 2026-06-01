@@ -112,11 +112,12 @@ defmodule TTFonture.Tables.Cmap do
   def char_to_glyph_id(%__MODULE__{mapping_subtables: mapping_subtables}, char_code)
       when is_number(char_code) do
     # Try to find the character in the best available subtable
-    # Priority: Format 12 (Unicode full repertoire) > Format 4 (Unicode BMP) > Format 6 > Format 0
+    # Priority: Format 12 (Unicode full repertoire) > Format 4 (Unicode BMP) > Format 13, Format 6 > Format 10 > Format 0
 
     formats = [
       {12, &lookup_in_format_12_groups/2},
       {4, &lookup_in_format_4_segments/2},
+      {13, &lookup_in_format_13_groups/2},
       {6, &lookup_in_format_6_segments/2},
       {10, &lookup_in_format_10_segments/2},
       {0, &lookup_in_format_0_segments/2}
@@ -148,6 +149,17 @@ defmodule TTFonture.Tables.Cmap do
       case lookup_fn.(subtable.data, char_code) do
         {:ok, glyph_id} -> {:halt, {:ok, glyph_id}}
         {:error, :not_found} -> {:cont, acc}
+      end
+    end)
+  end
+
+  # Look up character in format 13 groups (Constant Groups)
+  defp lookup_in_format_13_groups(data, char_code) do
+    Enum.reduce_while(data.groups, {:error, :not_found}, fn group, acc ->
+      if char_code >= group.start_char_code && char_code <= group.end_char_code do
+        {:halt, {:ok, group.start_glyph_code}}
+      else
+        {:cont, acc}
       end
     end)
   end
